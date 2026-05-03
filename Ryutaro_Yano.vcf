@@ -1,8 +1,9 @@
 BEGIN:VCARD
 VERSION:3.0
-PRODID:-//Apple Inc.//iPhone OS 26.4.2//EN
-N:Yano;Ryutaro;;;
-FN:Ryutaro Yano
+N:矢野;竜太郎;;;
+FN:竜太郎 矢野
+X-PHONETIC-FIRST-NAME:リュウタロウ
+X-PHONETIC-LAST-NAME:ヤノ
 item1.EMAIL;type=INTERNET;type=pref:hello@ryutaroyano.jp
 item1.X-ABLabel:仕事
 TEL;type=IPHONE;type=CELL;type=VOICE;type=pref:+81 (0) 90 3208 7026
