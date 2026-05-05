@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>矢野竜太郎 | STAY TOYOMA 宿守</title>
+  <meta name="robots" content="noindex"> <title>矢野竜太郎 - Contact</title>
   <link rel="icon" href="./images/favicon.png" type="image/png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400&family=Noto+Sans+JP:wght@300;400&display=swap" rel="stylesheet">
@@ -42,7 +42,7 @@
     }
 
     .header {
-      margin-bottom: 2rem;
+      margin-bottom: 2.5rem;
       padding-bottom: 2rem;
       border-bottom: 1px solid var(--line);
     }
@@ -94,15 +94,6 @@
       height: 100%;
       object-fit: cover;
       display: block;
-    }
-
-    /* 追加：ご案内メッセージ用のスタイル */
-    .notice {
-      font-size: 0.85rem;
-      color: var(--muted);
-      line-height: 1.8;
-      margin-bottom: 2rem;
-      letter-spacing: 0.04em;
     }
 
     .links {
@@ -159,6 +150,40 @@
       text-transform: uppercase;
       margin-bottom: 0.1rem;
     }
+
+    .map-thumb {
+      width: 64px;
+      height: 64px;
+      flex-shrink: 0;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+    }
+
+    .map-thumb iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+      pointer-events: none;
+    }
+
+    .cta {
+      margin-top: 2rem;
+      display: block;
+      width: 100%;
+      padding: 0.9rem;
+      background: var(--ink);
+      color: var(--paper);
+      text-align: center;
+      text-decoration: none;
+      font-size: 0.82rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      transition: background 0.2s;
+    }
+
+    .cta:hover { background: var(--accent); }
   </style>
 </head>
 <body>
@@ -177,11 +202,27 @@
       </div>
     </div>
 
-    <div class="notice">
-      お問い合わせやご連絡は、<br>各SNSのダイレクトメッセージからお願いいたします。
-    </div>
-
     <div class="links">
+
+      <a class="link-item" href="tel:+819032087026">
+        <div class="link-icon">
+          <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.18 6.18l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        </div>
+        <div class="link-body">
+          <div class="link-label">Tel</div>
+          <div class="link-text">090 3208 7026</div>
+        </div>
+      </a>
+
+      <a class="link-item" href="mailto:hello@ryutaroyano.jp">
+        <div class="link-icon">
+          <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>
+        </div>
+        <div class="link-body">
+          <div class="link-label">Mail</div>
+          <div class="link-text">hello@ryutaroyano.jp</div>
+        </div>
+      </a>
 
       <a class="link-item" href="https://www.facebook.com/ryutaroyano/" target="_blank" rel="noopener">
         <div class="link-icon">
@@ -223,7 +264,28 @@
         </div>
       </a>
 
+      <a class="link-item" href="https://maps.app.goo.gl/TRFD6wwzaBD94g8U6" target="_blank" rel="noopener">
+        <div class="link-icon">
+          <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        </div>
+        <div class="link-body">
+          <div class="link-label">Location</div>
+          <div class="link-text">STAY TOYOMA</div>
+        </div>
+        <div class="map-thumb">
+          <iframe
+            src="https://maps.google.com/maps?q=STAY+TOYOMA+登米市&output=embed&z=15"
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade">
+          </iframe>
+        </div>
+      </a>
+
     </div>
+
+    <a class="cta" href="Ryutaro_Yano.vcf" download>
+      連絡先を追加
+    </a>
 
   </div>
 </body>
