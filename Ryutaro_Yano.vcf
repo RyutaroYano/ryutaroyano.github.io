@@ -7,11 +7,11 @@ X-PHONETIC-LAST-NAME:ヤノ
 item1.EMAIL;type=INTERNET;type=pref:hello@ryutaroyano.jp
 item1.X-ABLabel:仕事
 TEL;type=IPHONE;type=CELL;type=VOICE;type=pref:+81 (0) 90 3208 7026
-X-SOCIALPROFILE;type=Instagram;x-user="https://www.instagram.com/ryutaroyano":x-apple:https%3A//www.instagram.com/ryutaroyano
-X-SOCIALPROFILE;type=Instagram;x-user="https://www.instagram.com/yadomori ":x-apple:https%3A//www.instagram.com/yadomori%20
-X-SOCIALPROFILE;type=facebook:http://www.facebook.com/https%3A//www.facebook.com/ryutaroyano/
+X-SOCIALPROFILE;type=Instagram;x-user="https://www.instagram.com/stay.toyoma":x-apple:https%3A//www.instagram.com/stay.toyoma
+X-SOCIALPROFILE;type=Instagram;x-user="https://www.instagram.com/yadomori ":x-apple:https%3A//www.instagram.com/yadomori
+X-SOCIALPROFILE;type=facebook:http://www.facebook.com/https%3A//www.facebook.com/ryutaroyano
 X-SOCIALPROFILE;type=YouTube;x-user="https://www.youtube.com/@ryutaroyano":x-apple:https%3A//www.youtube.com/@ryutaroyano
-item2.URL;type=pref:http://www.ryutaroyano.jp/
+item2.URL;type=pref:https://www.ryutaroyano.jp/
 item2.X-ABLabel:_$!<HomePage>!$_
 PHOTO;ENCODING=b:iVBORw0KGgoAAAANSUhEUgAAAUAAAAFACAIAAABC8jL9AAAAAXNSR0IArs
  4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQA
