@@ -8,6 +8,7 @@ item1.EMAIL;type=INTERNET;type=pref:hello@ryutaroyano.jp
 item1.X-ABLabel:仕事
 TEL;type=IPHONE;type=CELL;type=VOICE;type=pref:+81 (0) 90 3208 7026
 X-SOCIALPROFILE;type=Instagram:https://www.instagram.com/stay.toyoma
+X-SOCIALPROFILE;type=Instagram:https://www.instagram.com/stay.shiogama
 X-SOCIALPROFILE;type=Instagram:https://www.instagram.com/yadomori
 item2.URL;type=pref:https://www.ryutaroyano.jp/
 item2.X-ABLabel:_$!<HomePage>!$_
