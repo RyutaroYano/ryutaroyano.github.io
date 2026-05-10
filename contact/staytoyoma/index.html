@@ -50,11 +50,11 @@
     .header-top {
       display: flex;
       align-items: flex-start;
-      justify-content: space-between;
-      gap: 1rem;
+      justify-content: flex-start; /* 左寄せにします */
+      gap: 1.5rem; /* 🌟ここでお好みの距離（名前と画像の間隔）を調整できます */
     }
 
-    .header-text { flex: 1; }
+    .header-text { flex: none; }
 
     .name-jp {
       font-family: 'Noto Serif JP', serif;
@@ -287,7 +287,7 @@
         </div>
         <div class="map-thumb">
           <iframe
-            src="https://maps.google.com/maps?q=STAY+TOYOMA+登米市&output=embed&z=15"
+            src="https://maps.app.goo.gl/TRFD6wwzaBD94g8U6&output=embed&z=15"
             loading="lazy"
             referrerpolicy="no-referrer-when-downgrade">
           </iframe>
