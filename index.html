@@ -96,6 +96,28 @@
       display: block;
     }
 
+    /* 追加：キャッチコピー（意図文） */
+    .creed {
+      margin-top: 1.5rem;
+    }
+
+    .creed-lead {
+      font-size: 0.86rem;
+      font-weight: 300;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .creed-main {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 1.15rem;
+      font-weight: 400;
+      letter-spacing: 0.1em;
+      line-height: 1.6;
+      color: var(--ink);
+    }
+
     /* 追加：ご案内メッセージ用のスタイル */
     .notice {
       font-size: 0.85rem;
@@ -174,6 +196,12 @@
           <img src="/images/profile.jpg" alt="矢野竜太郎">
         </div>
       </div>
+
+      <!-- 追加：キャッチコピー -->
+      <div class="creed">
+        <div class="creed-lead">問いと試行を繰り返し</div>
+        <div class="creed-main">真理で軽やかに遊ぶ。</div>
+      </div>
     </div>
 
     <div class="notice">
@@ -212,7 +240,6 @@
         </div>
       </a>
 
-      
       <a class="link-item" href="mailto:hello@ryutaroyano.jp">
         <div class="link-icon">
           <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>
