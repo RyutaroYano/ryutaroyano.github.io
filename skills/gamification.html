@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ゲーミフィケーション</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='4' width='56' height='56' rx='12' fill='%23e8562f'/%3E%3Ccircle cx='19' cy='19' r='6' fill='white'/%3E%3Ccircle cx='45' cy='19' r='6' fill='white'/%3E%3Ccircle cx='32' cy='32' r='6' fill='white'/%3E%3Ccircle cx='19' cy='45' r='6' fill='white'/%3E%3Ccircle cx='45' cy='45' r='6' fill='white'/%3E%3C/svg%3E">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; background: #f4f4f7;
+    font-family: 'Hiragino Sans','Noto Sans JP',sans-serif; color: #2b2b2b;
+    -webkit-user-select: none; user-select: none;
+  }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 20px 16px 48px; }
+  .authInput { width:100%; box-sizing:border-box; padding:12px 14px; font-size:16px; border:1.5px solid #ddd; border-radius:12px; margin-bottom:12px; }
+  h1 { font-size: 26px; margin: 0 0 4px; text-align: center; }
+  .sub { font-size: 13px; color: #888; text-align: center; margin: 0 0 18px; }
+
+  .pointCard { background: linear-gradient(135deg,#3a3a5c,#5a5a8c); color:#fff; border-radius:18px; padding:18px 20px; text-align:center; box-shadow:0 4px 14px rgba(0,0,0,0.15); }
+  .pointLabel { font-size:12px; opacity:.8; letter-spacing:2px; }
+  .syncStatus { font-size:10px; letter-spacing:0; margin-left:8px; padding:2px 7px; border-radius:8px; background:rgba(255,255,255,.18); }
+  .syncStatus.ok { background:rgba(255,255,255,.18); }
+  .syncStatus.busy { background:rgba(255,255,255,.28); }
+  .syncStatus.err { background:#c62828; }
+  .syncStatus.warn { background:rgba(0,0,0,.2); }
+  .pointValueRow { position:relative; display:flex; align-items:baseline; justify-content:center; min-height:58px; }
+  .pointValue { font-size:52px; font-weight:700; line-height:1.1; }
+  .pointUnit { font-size:20px; font-weight:400; margin-left:4px; }
+  .pointFlash { position:absolute; right:20px; top:50%; transform:translateY(-50%); font-size:22px; font-weight:700; color:#8fe6b0; animation:pop .3s ease; }
+
+  .section { margin-top:22px; }
+  .secTitle { font-size:13px; font-weight:700; color:#666; margin-bottom:10px; padding-left:2px; }
+
+  .actionGrid { display:flex; flex-direction:column; gap:8px; }
+  .actionBtn { position:relative; display:flex; align-items:center; gap:10px; background:#fff; border:1.5px solid #e2e2ea; border-radius:12px; padding:13px 14px; min-height:60px; cursor:pointer; font-size:14px; text-align:left; color:#333; width:100%; }
+  .btnFlash { position:absolute; right:52px; top:50%; transform:translateY(-50%); color:#2e9e5b; font-weight:700; font-size:14px; pointer-events:none; animation:btnFlashUp .9s ease-out forwards; }
+  @keyframes btnFlashUp {
+    0% { opacity:0; transform:translateY(-50%) scale(.8); }
+    20% { opacity:1; transform:translateY(-50%) scale(1.1); }
+    60% { opacity:1; transform:translateY(-90%) scale(1); }
+    100% { opacity:0; transform:translateY(-140%) scale(1); }
+  }
+  .dotRow { position:absolute; left:50px; bottom:6px; display:flex; align-items:center; gap:3px; pointer-events:none; }
+  .dot { width:6px; height:6px; border-radius:50%; background:#e8562f; display:inline-block; }
+  .dot.dotGap { margin-left:5px; }
+  .actionBtn:active { transform:scale(0.98); }
+  .actionBtn.usedOnce { background:#eee; border-color:#ddd; color:#aaa; cursor:default; }
+  .actionBtn.usedOnce:active { transform:none; }
+  .actionBtn.usedOnce .actionEmoji { filter:grayscale(1); opacity:.6; }
+  .actionBtn.usedOnce .actionPt { color:#bbb; }
+  .actionEmoji { font-size:22px; flex-shrink:0; width:26px; text-align:center; }
+  .actionLabel { flex:1; }
+  .actionPt { font-weight:700; color:#5a5a8c; font-size:16px; min-width:30px; text-align:right; }
+
+  .diceRow { display:flex; align-items:center; gap:12px; margin:6px 0 14px; height:76px; }
+  .dice { width:72px; height:72px; border-radius:16px; background:#fff; border:2px solid #3a3a5c; display:flex; align-items:center; justify-content:center; font-size:38px; font-weight:700; color:#3a3a5c; box-shadow:0 3px 8px rgba(0,0,0,0.12); flex-shrink:0; }
+  .dice.rolling { animation:shake .28s infinite; background:#fff7d6; }
+  .resultInline { flex:1; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; padding-left:6px; height:76px; overflow:hidden; }
+  .resultEmoji { font-size:30px; line-height:1.05; animation:pop .4s ease; }
+  .resultName { font-size:16px; font-weight:700; margin-top:1px; line-height:1.15; }
+
+  .rollBtnRow { display:flex; gap:8px; align-items:stretch; }
+  .rollBtn { flex:1; background:linear-gradient(135deg,#e8562f,#f0803f); color:#fff; border:none; border-radius:14px; padding:15px 0; font-size:17px; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(232,86,47,0.3); }
+  .rollBtn:disabled { background:#ccc; box-shadow:none; }
+  .manualBtn { flex:0 0 auto; background:linear-gradient(135deg,#e8562f,#f0803f); color:#fff; border:none; border-radius:14px; padding:0 14px; font-size:13px; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(232,86,47,0.3); }
+  .manualBtn:active { transform:scale(0.97); }
+  .manualBtn:disabled { background:#ccc; box-shadow:none; color:#fff; cursor:default; }
+  .manualBtn:disabled:active { transform:none; }
+  .modalOverlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:100; align-items:center; justify-content:center; padding:20px; }
+  .modalOverlay.show { display:flex; }
+  .modalCard { background:#fff; border-radius:18px; padding:20px; width:100%; max-width:340px; box-shadow:0 10px 40px rgba(0,0,0,0.25); }
+  .modalTitle { font-size:16px; font-weight:700; margin-bottom:4px; }
+  .modalSub { font-size:12px; color:#888; margin-bottom:14px; }
+  .diceLabel { font-size:11px; color:#aaa; margin:4px 0 6px; }
+  .diceGrid { display:grid; grid-template-columns:repeat(8,1fr); gap:5px; margin-bottom:10px; }
+  .diceBtn { aspect-ratio:1; border:1.5px solid #ddd; background:#fafafa; border-radius:9px; font-size:15px; font-weight:700; color:#555; cursor:pointer; padding:0; }
+  .diceBtn.sel { background:#e8562f; border-color:#e8562f; color:#fff; }
+  .manualResult { text-align:center; font-size:17px; font-weight:700; padding:12px; background:#f7f7f8; border-radius:12px; margin-bottom:14px; min-height:24px; }
+  .modalBtnRow { display:flex; gap:8px; }
+  .modalConfirm { flex:1; background:#e8562f; color:#fff; border:none; border-radius:12px; padding:11px 0; font-size:14px; font-weight:700; cursor:pointer; }
+  .modalConfirm:disabled { background:#ccc; cursor:default; }
+  .modalClose { flex:0 0 auto; padding:11px 18px; background:#eee; color:#555; border:none; border-radius:12px; font-size:14px; font-weight:700; cursor:pointer; }
+
+  .stockList { display:flex; flex-direction:column; gap:7px; }
+  .stockRow { display:flex; align-items:center; background:#fff; border:1.5px solid #e2e2ea; border-radius:12px; padding:10px 12px; gap:10px; }
+  .stockEmoji { font-size:22px; }
+  .stockName { flex:1; font-size:14px; }
+
+  .todayBox { display:flex; gap:10px; margin-bottom:12px; }
+  .todayBoxLabel { writing-mode:vertical-rl; font-size:12px; font-weight:700; color:#c98a4a; letter-spacing:2px; padding:2px 8px 2px 0; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-right:2px solid #f0c9a0; }
+  .todayBoxInner { flex:1; display:flex; flex-direction:column; gap:7px; }
+  .carryWrap { display:flex; flex-direction:column; gap:7px; }
+  .stockCount { font-weight:700; font-size:16px; color:#3a3a5c; min-width:34px; text-align:right; }
+  .useBtn { background:#3a3a5c; color:#fff; border:none; border-radius:9px; padding:7px 16px; font-size:13px; font-weight:700; cursor:pointer; }
+  .useBtn:disabled { background:#d5d5dd; }
+
+  .logList { display:flex; flex-direction:column; gap:4px; max-height:260px; overflow-y:auto; }
+  .boardWrap { width:100%; }
+  .boardTable { border-collapse:collapse; width:100%; table-layout:fixed; }
+  .boardTable th { color:#aaa; font-weight:600; font-size:10px; padding:3px 0; }
+  .boardTable th:first-child { width:14px; }
+  .boardTable td { border:1px solid #eee; padding:4px 1px; text-align:center; line-height:1.25; }
+  .boardTable .bEmoji { display:block; font-size:13px; }
+  .boardTable .bName { display:block; color:#888; font-size:8px; white-space:nowrap; }
+  .boardTable td.rare { background:#fff7ef; }
+  .logEmpty { font-size:13px; color:#aaa; padding:8px 2px; }
+  .logRow { display:flex; align-items:center; gap:8px; font-size:12.5px; padding:6px 4px; border-bottom:1px solid #f0f0f4; }
+  .logDate { color:#aaa; min-width:38px; }
+  .logDetail { flex:1; color:#444; }
+  .logEarn { color:#2b7; font-weight:700; }
+  .logRoll { color:#e8562f; font-weight:700; }
+  .logUse { color:#888; font-weight:700; }
+  .logMilestone { font-size:15px; }
+  .specialBox { display:flex; align-items:center; gap:10px; background:#eef2fb; border:1.5px solid #b9c6e8; border-radius:12px; padding:10px 12px; margin-top:12px; }
+  .specialTag { font-size:10px; color:#6a7bb0; margin-left:6px; }
+
+  .reset { display:block; margin:28px auto 0; background:none; border:none; color:#bbb; font-size:12px; text-decoration:underline; cursor:pointer; }
+  .resetConfirm { margin-top:28px; padding:14px 16px; border:1.5px solid #f0c9c0; background:#fdf3f0; border-radius:12px; text-align:center; }
+  .resetMsg { font-size:13px; color:#a5462f; margin-bottom:10px; }
+  .resetBtnRow { display:flex; gap:10px; justify-content:center; }
+  .resetCancel { background:#eee; color:#555; border:none; border-radius:9px; padding:8px 20px; font-size:13px; font-weight:700; cursor:pointer; }
+  .resetGo { background:#e8562f; color:#fff; border:none; border-radius:9px; padding:8px 20px; font-size:13px; font-weight:700; cursor:pointer; }
+
+  @keyframes shake { 0%,100%{transform:translateY(0) rotate(0)} 25%{transform:translateY(-6px) rotate(-12deg)} 50%{transform:translateY(0) rotate(10deg)} 75%{transform:translateY(-4px) rotate(-6deg)} }
+  @keyframes pop { 0%{transform:scale(.6);opacity:0} 60%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} }
+</style>
+</head>
+<body>
+
+<div class="modalOverlay show" id="authOverlay">
+  <div class="modalCard">
+    <div class="modalTitle">合言葉を入力</div>
+    <div class="modalSub">この端末では初回だけ。以後は自動で使います。</div>
+    <input type="password" id="authInput" class="authInput" placeholder="合言葉" autocomplete="off">
+    <div class="manualResult" id="authMsg" style="display:none;color:#c62828;">合言葉が違います</div>
+    <div class="modalBtnRow">
+      <button class="modalConfirm" id="authConfirm" style="flex:1;">開く</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <h1>🎲 ゲーミフィケーション</h1>
+  <p class="sub">行動を貯めて、サイコロで報酬を解禁する</p>
+
+  <div class="pointCard">
+    <div class="pointLabel">いまの点数<span class="syncStatus" id="syncStatus"></span></div>
+    <div class="pointValueRow">
+      <span class="pointValue"><span id="points">0</span><span class="pointUnit">点</span></span>
+      <span class="pointFlash" id="flash" style="display:none"></span>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="secTitle">やったことを記録</div>
+    <div class="actionGrid" id="actionGrid"></div>
+  </div>
+
+  <div class="section">
+    <div class="secTitle">サイコロを振る（1回=3点）</div>
+    <div class="diceRow">
+      <div class="dice" id="dice0">?</div>
+      <div class="dice" id="dice1">?</div>
+      <div class="resultInline" id="resultInline"></div>
+    </div>
+    <div class="rollBtnRow">
+      <button class="rollBtn" id="rollBtn">振る（-3点）</button>
+      <button class="manualBtn" id="manualBtn">手動で振る</button>
+    </div>
+  </div>
+
+  <div class="modalOverlay" id="manualModal">
+    <div class="modalCard">
+      <div class="modalTitle">手動でサイコロを振る</div>
+      <div class="modalSub">出た目を2つ選んでください（順番は不問）。3点を消費します。</div>
+      <div class="diceGrid" id="diceGrid1"></div>
+      <div class="diceGrid" id="diceGrid2"></div>
+      <div class="manualResult" id="manualResult">目を2つ選ぶと結果が出ます</div>
+      <div class="modalBtnRow">
+        <button class="modalClose" id="manualClose">閉じる</button>
+        <button class="modalConfirm" id="manualConfirm" disabled>この報酬を追加</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="secTitle">報酬ストック</div>
+    <div class="stockList" id="stockList"></div>
+  </div>
+
+  <div class="section">
+    <div class="secTitle">盤面</div>
+    <div class="boardWrap"><table class="boardTable" id="boardTable"></table></div>
+  </div>
+
+  <div class="section">
+    <div class="secTitle">履歴</div>
+    <div class="logList" id="logList"></div>
+  </div>
+
+  <div id="resetArea"></div>
+</div>
+
+<script>
+// ───────── 定数 ─────────
+var COST = 3;
+
+var ACTIONS = [
+  { id:"sleep",     emoji:"😴", label:"前日23時までに就寝 or 7.5時間以上寝た", pt:1, once:true, category:"土台" },
+  { id:"morning",   emoji:"🌅", label:"朝のルーティンを完遂した", pt:1, once:true, category:"土台" },
+  { id:"plan",      emoji:"🧠", label:"昨日の振り返りと今日の計画を立てた", pt:1, once:true, category:"土台" },
+  { id:"stretch5",  emoji:"🧘", label:"ストレッチを5分やった", pt:1, once:true, category:"健康" },
+  { id:"note5",     emoji:"📝", label:"note記事を5分書いた", pt:1, once:true, category:"スキル" },
+  { id:"yt5",       emoji:"🎬", label:"動画編集を5分やった", pt:1, once:true, category:"スキル" },
+  { id:"walk8888",  emoji:"🚶", label:"8888歩以上歩いた", pt:1, once:true, category:"健康" },
+  { id:"contact",   emoji:"📧", label:"関係者に連絡を1件送った", pt:1, category:"人間関係" },
+  { id:"canele",    emoji:"🥐", label:"カヌレの仕事を33分33秒やった", pt:1, category:"経済" },
+  { id:"note33",    emoji:"📝", label:"note記事を33分33秒書いた", pt:1, category:"スキル" },
+  { id:"yt33",      emoji:"🎬", label:"動画編集を33分33秒やった", pt:1, category:"スキル" },
+];
+
+// スプレッドシートの列順はここで決める（カテゴリごとにグループ化）。
+// アプリ内の操作順（ACTIONS配列の順）とは独立している。
+var CATEGORY_ORDER = ["土台", "健康", "人間関係", "スキル", "経済"];
+function dailyLogColumns(){
+  var cols = [];
+  CATEGORY_ORDER.forEach(function(cat){
+    ACTIONS.forEach(function(a){
+      if (a.category === cat) cols.push({ id:a.id, label:a.label, category:cat });
+    });
+  });
+  // 万一カテゴリ未設定の項目があれば最後に足す（漏れ防止）
+  ACTIONS.forEach(function(a){
+    if (CATEGORY_ORDER.indexOf(a.category) === -1) cols.push({ id:a.id, label:a.label, category:a.category||"" });
+  });
+  return cols;
+}
+
+var REWARDS = {
+  atari:      { emoji:"㊗️", name:"当たり（どれか一回）", short:"当たり" },
+  onsen:      { emoji:"♨️", name:"温泉", short:"温泉" },
+  self:       { emoji:"🔞", name:"自慰", short:"自慰" },
+  eatout:     { emoji:"🍱", name:"外食", short:"外食" },
+  manga:      { emoji:"📔", name:"漫画", short:"漫画" },
+  off:        { emoji:"🛁", name:"湯船につかる", short:"湯船" },
+  smartphone: { emoji:"📱", name:"スマホ10分", short:"スマホ" },
+};
+// 表示順：当日限り(湯船→スマホ→漫画) → 持ち越し可(当たり→温泉→外食→自慰)
+var REWARD_ORDER = ["off","smartphone","manga","atari","onsen","eatout","self"];
+// 翌日に持ち越せる報酬（これ以外は日をまたぐと0に戻る）
+var CARRYOVER_OK = ["eatout","onsen","atari","self"];
+
+// 盤面（線対称・優先順で読める）：
+// ①ゾロ目=4-4自慰/7-7当たり/8-8温泉/他漫画 ②5と1〜4=外食(15は強い) ③1か8を含む=スマホ ④残り=湯船
+var BOARD = [
+  ["manga","smartphone","smartphone","smartphone","eatout","smartphone","smartphone","smartphone"],
+  ["smartphone","manga","off","off","eatout","off","off","smartphone"],
+  ["smartphone","off","manga","off","eatout","off","off","smartphone"],
+  ["smartphone","off","off","self","eatout","off","off","smartphone"],
+  ["eatout","eatout","eatout","eatout","manga","off","off","smartphone"],
+  ["smartphone","off","off","off","off","manga","off","smartphone"],
+  ["smartphone","off","off","off","off","off","atari","smartphone"],
+  ["smartphone","smartphone","smartphone","smartphone","smartphone","smartphone","smartphone","onsen"],
+];
+function rollToReward(a,b){ return BOARD[a-1][b-1]; }
+
+// ───────── 日付ユーティリティ ─────────
+function fmt(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function todayStr(){ return fmt(new Date()); }
+function addDays(s,n){ var p=s.split("-").map(Number); var d=new Date(p[0],p[1]-1,p[2]); d.setDate(d.getDate()+n); return fmt(d); }
+function yesterdayStr(){ return addDays(todayStr(),-1); }
+
+// ───────── 状態 ─────────
+var ZERO_STOCK = { atari:0,onsen:0,self:0,eatout:0,manga:0,off:0,smartphone:0 };
+var state = { points:0, stock:Object.assign({},ZERO_STOCK), log:[], daily:{}, lastSettled:null, earnedTotal:0, miyazaki:0 };
+var rolling = false;
+
+// ───────── 保存・読み込み（Google Drive / GAS 同期 ＋ オフライン対応） ─────────
+// ↓ ここに GAS のデプロイURL（.../exec）を貼る
+var GAS_URL = "https://script.google.com/macros/s/AKfycbw_glUMKCCltE0BormAgxN5iiDhDCtiXbLZMmn7iqIL18Lme0Dajrs2qj6YPk5VD944/exec";
+// 合言葉はHTMLには書かない。竜太郎さん自身が初回だけ入力し、以後はこの端末に覚えさせる。
+var GAS_SECRET = "";
+try { GAS_SECRET = localStorage.getItem("gas_secret") || ""; } catch(e){}
+
+var LOCAL_KEY = "gamification_local_v1";      // この端末に持たせる最新state
+var PENDING_LOG_KEY = "gamification_pending_logs_v1"; // まだGASへ送れていない日次ログ
+
+var syncEl = null;
+function setSync(text, cls){
+  if (!syncEl) syncEl = document.getElementById("syncStatus");
+  if (!syncEl) return;
+  syncEl.textContent = text;
+  syncEl.className = "syncStatus" + (cls ? " "+cls : "");
+}
+
+function gasUrl(){
+  if (!GAS_URL) return "";
+  return GAS_URL + (GAS_SECRET ? "?secret="+encodeURIComponent(GAS_SECRET) : "");
+}
+
+// この端末にstateをそのまま覚えさせる（オフラインでも直前の状態から始められるように）
+function saveLocal(){
+  try { localStorage.setItem(LOCAL_KEY, JSON.stringify(state)); } catch(e){}
+}
+function loadLocal(){
+  try {
+    var raw = localStorage.getItem(LOCAL_KEY);
+    if (!raw) return false;
+    var s = JSON.parse(raw);
+    state.points = s.points||0;
+    state.stock = Object.assign({}, ZERO_STOCK, s.stock||{});
+    state.log = s.log||[];
+    state.daily = s.daily||{};
+    state.lastSettled = s.lastSettled||null;
+    state.earnedTotal = s.earnedTotal||0;
+    state.miyazaki = s.miyazaki||0;
+    return true;
+  } catch(e){ return false; }
+}
+
+// 保存：まずこの端末に確実に残す。そのうえでサーバーへ送れるだけ送る（失敗しても操作は失われない）。
+var savePending = 0;
+var saveSeq = 0;
+var hasUnsynced = false;   // この端末に、まだサーバーへ届いていない変更があるか
+function save(){
+  saveLocal();  // ここは必ず成功する（通信不要）ので、オフラインでも操作は消えない
+  if (!GAS_URL){ setSync("未接続", "warn"); return; }
+  var mySeq = ++saveSeq;
+  var payload = JSON.stringify(state);
+  savePending++;
+  setSync("保存中…", "busy");
+  fetch(gasUrl(), {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: payload
+  })
+  .then(function(){
+    savePending--;
+    if (mySeq !== saveSeq) return;   // 連続保存中は最後だけ検証
+    setSync("確認中…", "busy");
+    setTimeout(function(){
+      if (mySeq !== saveSeq) return;
+      fetch(gasUrl() + (GAS_SECRET ? "&" : "?") + "t=" + Date.now(), { method:"GET" })
+        .then(function(r){ return r.json(); })
+        .then(function(s){
+          if (mySeq !== saveSeq) return;
+          if (s && !s.error && s.points === state.points){
+            hasUnsynced = false;
+            setSync("同期済み", "ok");
+          } else {
+            hasUnsynced = true;
+            setSync("未反映", "err");
+          }
+        })
+        .catch(function(){
+          if (mySeq !== saveSeq) return;
+          hasUnsynced = true;
+          setSync("オフライン（未送信あり）", "warn");
+        });
+    }, 1500);
+  })
+  .catch(function(){
+    savePending--;
+    hasUnsynced = true;
+    setSync("オフライン（未送信あり）", "warn");
+  });
+}
+
+// 読み込み：まずこの端末の直前の状態を出す。そのうえでサーバーの最新を取りに行く（取れれば上書き）。
+function load(){
+  var hadLocal = loadLocal();
+  if (!GAS_URL){
+    setSync("未接続", "warn");
+    return Promise.resolve();
+  }
+  setSync(hadLocal ? "同期中…" : "読込中…", "busy");
+  return fetch(gasUrl(), { method:"GET" })
+    .then(function(r){ return r.json(); })
+    .then(function(s){
+      if (s && !s.error){
+        state.points = s.points||0;
+        state.stock = Object.assign({}, ZERO_STOCK, s.stock||{});
+        state.log = s.log||[];
+        state.daily = s.daily||{};
+        state.lastSettled = s.lastSettled||null;
+        state.earnedTotal = s.earnedTotal||0;
+        state.miyazaki = s.miyazaki||0;
+        saveLocal();
+        hasUnsynced = false;
+        setSync("同期済み", "ok");
+        flushPendingLogs();  // オンラインに戻れたので、溜まっていた日次ログも送る
+      } else {
+        setSync(hadLocal ? "オフライン（前回の記録を表示中）" : "読込失敗", "warn");
+      }
+    })
+    .catch(function(){
+      setSync(hadLocal ? "オフライン（前回の記録を表示中）" : "オフラインです", "warn");
+    });
+}
+
+// ───────── 日跨ぎ処理（当日限り報酬のリセットのみ・ペナルティなし） ─────────
+function settlePastDays(){
+  var today = todayStr();
+  if (!state.lastSettled){
+    state.lastSettled = today;
+    save();
+    return;
+  }
+  // 日をまたいでいたら、持ち越し不可の報酬を0に戻し、前日の記録をスプレッドシートへ送る
+  if (state.lastSettled < today){
+    var prevDate = state.lastSettled;
+    sendDailyLog(prevDate);
+    REWARD_ORDER.forEach(function(rk){
+      if (CARRYOVER_OK.indexOf(rk) === -1){
+        state.stock[rk] = 0;
+      }
+    });
+    state.lastSettled = today;
+    save();
+  }
+}
+
+// 指定日の「やったことを記録」の回数と合計点を、日次ログとしてGASへ送る
+function buildDailyLogPayload(dateStr){
+  var rec = state.daily[dateStr] || {};
+  var counts = {};
+  var totalPoints = 0;
+  ACTIONS.forEach(function(a){
+    var n;
+    if (a.once){
+      n = rec[a.id] ? 1 : 0;
+    } else {
+      n = rec[a.id] || 0;
+    }
+    counts[a.id] = n;
+    totalPoints += n * a.pt;
+  });
+  // 列の並びと見出し（カテゴリごとにグループ化した順）もこちらから送る。
+  // GAS側はこれをそのまま使うだけなので、項目を増減・並び替えてもGASを触る必要がない。
+  return {
+    kind:"dailyLog",
+    date:dateStr,
+    totalPoints:totalPoints,
+    counts:counts,
+    columns: dailyLogColumns()   // [{id,label,category}, ...] 列の順番そのもの
+  };
+}
+
+function getPendingLogs(){
+  try { return JSON.parse(localStorage.getItem(PENDING_LOG_KEY) || "[]"); } catch(e){ return []; }
+}
+function setPendingLogs(list){
+  try { localStorage.setItem(PENDING_LOG_KEY, JSON.stringify(list)); } catch(e){}
+}
+function queuePendingLog(payload){
+  var list = getPendingLogs();
+  // 同じ日付の未送信ログがあれば新しい内容で上書き（重複を防ぐ）
+  list = list.filter(function(p){ return p.date !== payload.date; });
+  list.push(payload);
+  setPendingLogs(list);
+}
+
+function sendDailyLog(dateStr){
+  if (!GAS_URL) return;
+  var payload = buildDailyLogPayload(dateStr);
+  fetch(gasUrl(), {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(payload)
+  }).catch(function(){
+    // オフラインなどで送れなかった場合、諦めずに端末内へ溜めておく
+    queuePendingLog(payload);
+  });
+}
+
+// オンラインに戻れたタイミングで、溜まっている日次ログをまとめて送る
+function flushPendingLogs(){
+  if (!GAS_URL) return;
+  var list = getPendingLogs();
+  if (!list.length) return;
+  setPendingLogs([]); // 先に空にしておき、失敗したものだけ後で戻す
+  var stillFailed = [];
+  var remaining = list.length;
+  list.forEach(function(payload){
+    fetch(gasUrl(), {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    })
+    .catch(function(){ stillFailed.push(payload); })
+    .then(function(){
+      remaining--;
+      if (remaining === 0 && stillFailed.length) setPendingLogs(stillFailed);
+    });
+  });
+}
+
+// ───────── 操作 ─────────
+function showFlash(msg){
+  var el = document.getElementById("flash");
+  el.textContent = msg; el.style.display = "";
+  el.style.animation = "none"; void el.offsetWidth; el.style.animation = "pop .3s ease";
+  clearTimeout(showFlash._t);
+  showFlash._t = setTimeout(function(){ el.style.display = "none"; }, 1200);
+}
+
+function flashOnButton(btn, msg){
+  if (!btn) return;
+  var f = document.createElement("span");
+  f.className = "btnFlash";
+  f.textContent = msg;
+  btn.appendChild(f);
+  setTimeout(function(){ if (f.parentNode) f.parentNode.removeChild(f); }, 900);
+}
+
+function addPoint(a, btn){
+  var td = todayStr();
+  if (!state.daily[td]) state.daily[td] = {};
+  // 5分系（once）は当日1回だけ。押下済みなら無視
+  if (a.once){
+    if (state.daily[td][a.id]) return;
+    state.daily[td][a.id] = true;
+  } else {
+    // 複数回押せるものは当日の回数をカウント
+    state.daily[td][a.id] = (state.daily[td][a.id] || 0) + 1;
+  }
+  state.points += a.pt;
+  state.log.unshift({ date:todayStr(), type:"earn", detail:a.label, pt:a.pt });
+  // 累積獲得点を進め、10点をまたぐごとに海野さん音声を1回解放
+  var before = state.earnedTotal || 0;
+  var after = before + a.pt;
+  state.earnedTotal = after;
+  var unlocked = Math.floor(after/10) - Math.floor(before/10);
+  if (unlocked > 0){
+    state.miyazaki = (state.miyazaki||0) + unlocked;
+    state.log.unshift({ date:todayStr(), type:"milestone", detail:"🎧 海野さんのセッション音声 解放（累積"+after+"点）", pt:0 });
+  }
+  // 70点をまたぐごとに㊗️当たりを1回、確実に解放
+  var unlockedAtari = Math.floor(after/70) - Math.floor(before/70);
+  if (unlockedAtari > 0){
+    state.stock.atari = (state.stock.atari||0) + unlockedAtari;
+    state.log.unshift({ date:todayStr(), type:"milestone", detail:"㊗️ 当たり 確定解放（累積"+after+"点）", pt:0 });
+  }
+  state.log = state.log.slice(0,200);
+  save(); render();
+  // 押したボタンを再描画後に取り直して、その上に +N を出す
+  var fresh = document.getElementById("act_"+a.id);
+  flashOnButton(fresh, "+"+a.pt+"点");
+  if (unlocked > 0) setTimeout(function(){ showFlash("🎧 音声 解放！"); }, 900);
+  if (unlockedAtari > 0) setTimeout(function(){ showFlash("㊗️ 当たり 確定！"); }, unlocked>0 ? 1800 : 900);
+}
+
+function roll(){
+  if (state.points < COST || rolling) return;
+  rolling = true;
+  document.getElementById("resultInline").innerHTML = "";
+  document.getElementById("dice0").classList.add("rolling");
+  document.getElementById("dice1").classList.add("rolling");
+  document.getElementById("rollBtn").disabled = true;
+  document.getElementById("rollBtn").textContent = "ドゥルルルル…";
+  var ticks = 0, max = 22;
+  var iv = setInterval(function(){
+    ticks++;
+    document.getElementById("dice0").textContent = 1+Math.floor(Math.random()*8);
+    document.getElementById("dice1").textContent = 1+Math.floor(Math.random()*8);
+    if (ticks>=max){
+      clearInterval(iv);
+      var A = 1+Math.floor(Math.random()*8), B = 1+Math.floor(Math.random()*8);
+      document.getElementById("dice0").textContent = A;
+      document.getElementById("dice1").textContent = B;
+      document.getElementById("dice0").classList.remove("rolling");
+      document.getElementById("dice1").classList.remove("rolling");
+      var rk = rollToReward(A,B);
+      state.points -= COST;
+      state.stock[rk] = (state.stock[rk]||0) + 1;
+      state.log.unshift({ date:todayStr(), type:"roll", detail:A+""+B+" → "+REWARDS[rk].emoji+REWARDS[rk].name, pt:-COST });
+      state.log = state.log.slice(0,200);
+      rolling = false;
+      save(); render();
+      document.getElementById("resultInline").innerHTML =
+        '<span class="resultEmoji">'+REWARDS[rk].emoji+'</span><span class="resultName">'+REWARDS[rk].name+'</span>';
+    }
+  }, 90);
+}
+
+function consume(rk){
+  if ((state.stock[rk]||0) <= 0) return;
+  state.stock[rk] = (state.stock[rk]||0) - 1;
+  state.log.unshift({ date:todayStr(), type:"use", detail:REWARDS[rk].emoji+REWARDS[rk].name+" を消費", pt:0 });
+  state.log = state.log.slice(0,200);
+  save(); render();
+  showFlash(REWARDS[rk].emoji+" 消費");
+}
+
+var manualPick = { d1:null, d2:null };
+
+function openManual(){
+  manualPick = { d1:null, d2:null };
+  renderDiceGrids();
+  updateManualResult();
+  document.getElementById("manualModal").classList.add("show");
+}
+
+function renderDiceGrids(){
+  [1,2].forEach(function(slot){
+    var g = document.getElementById("diceGrid"+slot);
+    g.innerHTML = "";
+    for (var n=1; n<=8; n++){
+      (function(num){
+        var b = document.createElement("button");
+        b.className = "diceBtn" + ((slot===1?manualPick.d1:manualPick.d2)===num ? " sel" : "");
+        b.textContent = num;
+        b.onclick = function(){
+          if (slot===1) manualPick.d1 = num; else manualPick.d2 = num;
+          renderDiceGrids();
+          updateManualResult();
+        };
+        g.appendChild(b);
+      })(n);
+    }
+  });
+}
+
+function updateManualResult(){
+  var res = document.getElementById("manualResult");
+  var btn = document.getElementById("manualConfirm");
+  if (manualPick.d1 && manualPick.d2){
+    var rk = rollToReward(manualPick.d1, manualPick.d2);
+    res.innerHTML = manualPick.d1+" と "+manualPick.d2+" → "+REWARDS[rk].emoji+" "+REWARDS[rk].name;
+    btn.disabled = false;
+  } else {
+    res.textContent = "目を2つ選ぶと結果が出ます";
+    btn.disabled = true;
+  }
+}
+
+function manualConfirm(){
+  if (!(manualPick.d1 && manualPick.d2)) return;
+  if (state.points < COST){ showFlash("点数が足りません"); return; }
+  var A = manualPick.d1, B = manualPick.d2;
+  var rk = rollToReward(A, B);
+  state.points -= COST;
+  state.stock[rk] = (state.stock[rk]||0) + 1;
+  state.log.unshift({ date:todayStr(), type:"manual", detail:A+"-"+B+" → "+REWARDS[rk].emoji+REWARDS[rk].name, pt:-COST });
+  state.log = state.log.slice(0,200);
+  save(); render();
+  closeManual();
+  // 盤面のサイコロと右の結果表示を更新（通常のロールと同じ場所に出す）
+  document.getElementById("dice0").textContent = A;
+  document.getElementById("dice1").textContent = B;
+  document.getElementById("dice0").classList.remove("rolling");
+  document.getElementById("dice1").classList.remove("rolling");
+  document.getElementById("resultInline").innerHTML =
+    '<span class="resultEmoji">'+REWARDS[rk].emoji+'</span><span class="resultName">'+REWARDS[rk].name+'</span>';
+}
+
+function closeManual(){
+  document.getElementById("manualModal").classList.remove("show");
+}
+
+function consumeMiyazaki(){
+  if ((state.miyazaki||0) <= 0) return;
+  state.miyazaki -= 1;
+  state.log.unshift({ date:todayStr(), type:"use", detail:"🎧 海野さんのセッション音声 を消費", pt:0 });
+  state.log = state.log.slice(0,200);
+  save(); render();
+  showFlash("🎧 消費");
+}
+
+function doReset(){
+  state.points = 0;
+  state.stock = Object.assign({}, ZERO_STOCK);
+  state.log = []; state.daily = {}; state.lastSettled = todayStr();
+  state.earnedTotal = 0; state.miyazaki = 0;
+  // サイコロの目と結果表示も初期状態に戻す
+  document.getElementById("dice0").textContent = "?";
+  document.getElementById("dice1").textContent = "?";
+  document.getElementById("dice0").classList.remove("rolling");
+  document.getElementById("dice1").classList.remove("rolling");
+  document.getElementById("resultInline").innerHTML = "";
+  save(); render();
+  showFlash("リセットしました");
+}
+
+// ───────── 描画 ─────────
+// 盤面表（BOARDから自動生成。盤面を変えれば表も追随する）
+var RARE_KEYS = ["atari","onsen","self"];
+function renderBoardTable(){
+  var tbl = document.getElementById("boardTable");
+  if (!tbl) return;
+  var html = "<tr><th></th>";
+  for (var b=1; b<=8; b++) html += "<th>"+b+"</th>";
+  html += "</tr>";
+  for (var a=1; a<=8; a++){
+    html += "<tr><th>"+a+"</th>";
+    for (var b2=1; b2<=8; b2++){
+      var rk = BOARD[a-1][b2-1];
+      var cls = RARE_KEYS.indexOf(rk)>=0 ? ' class="rare"' : "";
+      html += "<td"+cls+">"+
+        '<span class="bEmoji">'+REWARDS[rk].emoji+'</span>'+
+        '<span class="bName">'+REWARDS[rk].short+'</span>'+
+        "</td>";
+    }
+    html += "</tr>";
+  }
+  tbl.innerHTML = html;
+}
+
+function render(){
+  document.getElementById("points").textContent = state.points;
+
+  // 加点ボタン
+  var ag = document.getElementById("actionGrid");
+  ag.innerHTML = "";
+  ACTIONS.forEach(function(a){
+    var td = todayStr();
+    var usedToday = a.once && state.daily[td] && state.daily[td][a.id];
+    var btn = document.createElement("button");
+    btn.id = "act_" + a.id;
+    btn.className = "actionBtn" + (usedToday ? " usedOnce" : "");
+    btn.disabled = !!usedToday;
+
+    // 複数回押せるボタンは、当日の押下回数をドットで表示
+    var dots = "";
+    if (!a.once){
+      var n = (state.daily[td] && state.daily[td][a.id]) || 0;
+      if (n > 0){
+        var d = "";
+        for (var i=0; i<n; i++){
+          // 5個ごとに区切りの間隔を空ける（正の字と同じ発想）
+          d += '<span class="dot'+((i>0 && i%5===0) ? " dotGap" : "")+'"></span>';
+        }
+        dots = '<span class="dotRow">'+d+'</span>';
+      }
+    }
+
+    btn.innerHTML =
+      '<span class="actionEmoji">'+a.emoji+'</span>'+
+      '<span class="actionLabel">'+a.label+dots+'</span>'+
+      '<span class="actionPt">+'+a.pt+'</span>';
+    btn.onclick = function(){ addPoint(a); };
+    ag.appendChild(btn);
+  });
+
+  // ロールボタン
+  var rb = document.getElementById("rollBtn");
+  if (rolling){ /* 中はrollが管理 */ }
+  else if (state.points < COST){ rb.disabled = true; rb.textContent = "あと"+(COST-state.points)+"点で振れる"; }
+  else { rb.disabled = false; rb.textContent = "振る（-3点）"; }
+
+  // 手動ボタンもロールボタンと同じく点数不足でグレーアウト
+  var mb = document.getElementById("manualBtn");
+  if (mb){ mb.disabled = (state.points < COST); }
+
+  // ストック（当日限りグループと持ち越し可グループに分けて表示）
+  var sl = document.getElementById("stockList");
+  sl.innerHTML = "";
+
+  function buildRow(rk){
+    var n = state.stock[rk]||0, has = n>0;
+    var row = document.createElement("div");
+    row.className = "stockRow"; row.style.opacity = has ? 1 : .5;
+    row.innerHTML =
+      '<span class="stockEmoji">'+REWARDS[rk].emoji+'</span>'+
+      '<span class="stockName">'+REWARDS[rk].name+'</span>'+
+      '<span class="stockCount">×'+n+'</span>';
+    var ub = document.createElement("button");
+    ub.className = "useBtn"; ub.textContent = "使う"; ub.disabled = !has;
+    ub.onclick = function(){ consume(rk); };
+    row.appendChild(ub);
+    return row;
+  }
+
+  var todayGroupKeys = REWARD_ORDER.filter(function(rk){ return CARRYOVER_OK.indexOf(rk)===-1; });
+  var carryGroupKeys = REWARD_ORDER.filter(function(rk){ return CARRYOVER_OK.indexOf(rk)!==-1; });
+
+  var todayBox = document.createElement("div");
+  todayBox.className = "todayBox";
+  var todayLabel = document.createElement("div");
+  todayLabel.className = "todayBoxLabel";
+  todayLabel.textContent = "当日中";
+  todayBox.appendChild(todayLabel);
+  var todayInner = document.createElement("div");
+  todayInner.className = "todayBoxInner";
+  todayGroupKeys.forEach(function(rk){ todayInner.appendChild(buildRow(rk)); });
+  todayBox.appendChild(todayInner);
+  sl.appendChild(todayBox);
+
+  var carryWrap = document.createElement("div");
+  carryWrap.className = "carryWrap";
+  carryGroupKeys.forEach(function(rk){ carryWrap.appendChild(buildRow(rk)); });
+  sl.appendChild(carryWrap);
+
+  // 特別枠：10点ごとに解放される海野さんセッション音声（一番下）
+  var mn = state.miyazaki || 0;
+  var specialBox = document.createElement("div");
+  specialBox.className = "specialBox";
+  specialBox.style.opacity = mn>0 ? 1 : .55;
+  specialBox.innerHTML =
+    '<span class="stockEmoji">🎧</span>'+
+    '<span class="stockName">海野さんのセッション音声<span class="specialTag">10点ごと</span></span>'+
+    '<span class="stockCount">×'+mn+'</span>';
+  var mub = document.createElement("button");
+  mub.className = "useBtn"; mub.textContent = "使う"; mub.disabled = !(mn>0);
+  mub.onclick = function(){ consumeMiyazaki(); };
+  specialBox.appendChild(mub);
+  sl.appendChild(specialBox);
+
+  // 履歴
+  var ll = document.getElementById("logList");
+  ll.innerHTML = "";
+  if (state.log.length === 0){
+    ll.innerHTML = '<div class="logEmpty">まだ記録はありません</div>';
+  } else {
+    state.log.slice(0,30).forEach(function(e){
+      var row = document.createElement("div");
+      row.className = "logRow";
+      var right = "";
+      if (e.type==="earn") right = '<span class="logEarn">+'+e.pt+'</span>';
+      else if (e.type==="roll") right = '<span class="logRoll">'+e.pt+'</span>';
+      else if (e.type==="use") right = '<span class="logUse">使用</span>';
+      else if (e.type==="manual") right = '<span class="logRoll">'+e.pt+'</span>';
+      else if (e.type==="milestone") right = '<span class="logMilestone">🎧</span>';
+      row.innerHTML =
+        '<span class="logDate">'+(e.date?e.date.slice(5):"")+'</span>'+
+        '<span class="logDetail">'+e.detail+'</span>'+ right;
+      ll.appendChild(row);
+    });
+  }
+
+  // リセット領域
+  var ra = document.getElementById("resetArea");
+  ra.innerHTML = '<button class="reset" id="resetBtn">すべてリセット</button>';
+  document.getElementById("resetBtn").onclick = function(){
+    ra.innerHTML =
+      '<div class="resetConfirm"><div class="resetMsg">点数・報酬ストック・履歴をすべて消します。よろしいですか？</div>'+
+      '<div class="resetBtnRow"><button class="resetCancel" id="rc">やめる</button><button class="resetGo" id="rg">消す</button></div></div>';
+    document.getElementById("rc").onclick = function(){ render(); };
+    document.getElementById("rg").onclick = function(){ doReset(); };
+  };
+}
+
+document.getElementById("rollBtn").onclick = roll;
+document.getElementById("manualBtn").onclick = openManual;
+document.getElementById("manualClose").onclick = function(e){ e.stopPropagation(); closeManual(); };
+document.getElementById("manualConfirm").onclick = function(e){ e.stopPropagation(); manualConfirm(); };
+document.querySelector("#manualModal .modalCard").onclick = function(e){ e.stopPropagation(); };
+document.getElementById("manualModal").onclick = function(e){
+  if (e.target === document.getElementById("manualModal")) closeManual();
+};
+
+// ───────── 起動（合言葉の確認を先に済ませる） ─────────
+function startApp(){
+  document.getElementById("authOverlay").classList.remove("show");
+  renderBoardTable();
+  render();   // まず空の状態で描画（読込中も画面が出る）
+  load().then(function(){
+    settlePastDays();
+    render();
+  });
+  // ネットが戻ったら、押した記録が確実にサーバーへ追いつくようにする
+  window.addEventListener("online", function(){
+    if (hasUnsynced) save();
+    flushPendingLogs();
+  });
+}
+
+function tryAuth(secretToTry){
+  var savedSecret = GAS_SECRET;
+  GAS_SECRET = secretToTry;
+  return fetch(gasUrl(), { method:"GET" })
+    .then(function(r){ return r.json(); })
+    .then(function(s){
+      if (s && s.error === "unauthorized"){
+        GAS_SECRET = savedSecret;
+        return "wrong";
+      }
+      // 成功：この端末に覚えさせる（以後はこの値と比べるだけで、通信しない）
+      try { localStorage.setItem("gas_secret", secretToTry); } catch(e){}
+      return "ok";
+    })
+    .catch(function(){
+      GAS_SECRET = savedSecret;
+      return "offline"; // 通信できず正誤を確認できなかった（合言葉が違うとは限らない）
+    });
+}
+
+document.getElementById("authConfirm").onclick = function(){
+  var v = document.getElementById("authInput").value;
+  if (!v){ return; }
+  document.getElementById("authConfirm").disabled = true;
+  document.getElementById("authConfirm").textContent = "確認中…";
+  tryAuth(v).then(function(result){
+    document.getElementById("authConfirm").disabled = false;
+    document.getElementById("authConfirm").textContent = "開く";
+    if (result === "ok"){
+      startApp();
+    } else if (result === "offline"){
+      document.getElementById("authMsg").textContent = "初回の確認にはネット接続が必要です。繋がる場所でもう一度試してください。";
+      document.getElementById("authMsg").style.display = "";
+    } else {
+      document.getElementById("authMsg").textContent = "合言葉が違います";
+      document.getElementById("authMsg").style.display = "";
+      document.getElementById("authInput").value = "";
+    }
+  });
+};
+document.getElementById("authInput").addEventListener("keydown", function(e){
+  if (e.key === "Enter") document.getElementById("authConfirm").click();
+});
+
+if (GAS_SECRET){
+  // すでにこの端末に合言葉が保存されている → そのまま起動（GASが違えばload時にエラーになるだけ）
+  startApp();
+}
+// 合言葉が未保存なら、authOverlay を表示したまま入力を待つ
+</script>
+</body>
+</html>
