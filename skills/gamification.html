@@ -408,20 +408,23 @@ function settlePastDays(){
   if (!state.lastSettled){
     state.lastSettled = today;
     save();
-    return;
+    return false;
   }
   // 日をまたいでいたら、持ち越し不可の報酬を0に戻し、前日の記録をスプレッドシートへ送る
   if (state.lastSettled < today){
     var prevDate = state.lastSettled;
-    sendDailyLog(prevDate);
     REWARD_ORDER.forEach(function(rk){
       if (CARRYOVER_OK.indexOf(rk) === -1){
         state.stock[rk] = 0;
       }
     });
     state.lastSettled = today;
-    save();
+    // 日次ログ送信とstate保存がGASへ同時に届くとロック競合で片方が失敗することがあるため、
+    // 日次ログ送信が完了してからstateを保存する
+    sendDailyLog(prevDate).then(function(){ save(); });
+    return true;
   }
+  return false;
 }
 
 // 指定日の「やったことを記録」の回数と合計点を、日次ログとしてGASへ送る
@@ -465,9 +468,9 @@ function queuePendingLog(payload){
 }
 
 function sendDailyLog(dateStr){
-  if (!GAS_URL) return;
+  if (!GAS_URL) return Promise.resolve();
   var payload = buildDailyLogPayload(dateStr);
-  fetch(gasUrl(), {
+  return fetch(gasUrl(), {
     method: "POST",
     mode: "no-cors",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -520,6 +523,8 @@ function flashOnButton(btn, msg){
 }
 
 function addPoint(a, btn){
+  // 記録ボタンを押すたびに、日をまたいでいないか念のため確認しておく
+  settlePastDays();
   var td = todayStr();
   if (!state.daily[td]) state.daily[td] = {};
   // 5分系（once）は当日1回だけ。押下済みなら無視
@@ -558,6 +563,8 @@ function addPoint(a, btn){
 
 function roll(){
   if (state.points < COST || rolling) return;
+  // サイコロを振る前にも、日をまたいでいないか念のため確認しておく
+  settlePastDays();
   rolling = true;
   document.getElementById("resultInline").innerHTML = "";
   document.getElementById("dice0").classList.add("rolling");
@@ -868,6 +875,13 @@ function startApp(){
   window.addEventListener("online", function(){
     if (hasUnsynced) save();
     flushPendingLogs();
+  });
+  // ホーム画面アプリを閉じずに日をまたいだ場合でも取りこぼさないよう、
+  // フォアグラウンド復帰時に日跨ぎ処理を再チェックする
+  document.addEventListener("visibilitychange", function(){
+    if (document.visibilityState === "visible"){
+      if (settlePastDays()) render();
+    }
   });
 }
 
