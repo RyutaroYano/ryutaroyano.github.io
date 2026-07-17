@@ -84,6 +84,12 @@
   .modalConfirm:disabled { background:#ccc; cursor:default; }
   .modalClose { flex:0 0 auto; padding:11px 18px; background:#eee; color:#555; border:none; border-radius:12px; font-size:14px; font-weight:700; cursor:pointer; }
 
+  .atariPickList { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
+  .atariPickBtn { display:flex; align-items:center; gap:10px; background:#fff; border:1.5px solid #e2e2ea; border-radius:12px; padding:11px 12px; font-size:14px; text-align:left; color:#333; cursor:pointer; width:100%; }
+  .atariPickBtn:active { transform:scale(0.98); }
+  .atariPickEmoji { font-size:20px; }
+  .atariPickName { flex:1; }
+
   .stockList { display:flex; flex-direction:column; gap:7px; }
   .stockRow { display:flex; align-items:center; background:#fff; border:1.5px solid #e2e2ea; border-radius:12px; padding:10px 12px; gap:10px; }
   .stockEmoji { font-size:22px; }
@@ -182,6 +188,17 @@
       <div class="modalBtnRow">
         <button class="modalClose" id="manualClose">閉じる</button>
         <button class="modalConfirm" id="manualConfirm" disabled>この報酬を追加</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modalOverlay" id="atariModal">
+    <div class="modalCard">
+      <div class="modalTitle">㊗️ 当たり交換</div>
+      <div class="modalSub">交換したい報酬を選んでください。当たりが1つ引かれます。</div>
+      <div class="atariPickList" id="atariPickList"></div>
+      <div class="modalBtnRow">
+        <button class="modalClose" id="atariClose">閉じる</button>
       </div>
     </div>
   </div>
@@ -605,6 +622,44 @@ function consume(rk){
   showFlash(REWARDS[rk].emoji+" 消費");
 }
 
+// 当たり＝その場でREWARDS一覧から好きな報酬に交換する券。ストックを直接+1するのではなく、
+// 選択式にすることで「結局何に使うか」を使うタイミングで決められるようにしている。
+function openAtariPick(){
+  if ((state.stock.atari||0) <= 0) return;
+  var list = document.getElementById("atariPickList");
+  list.innerHTML = "";
+  REWARD_ORDER.filter(function(rk){ return rk !== "atari"; }).forEach(function(rk){
+    var b = document.createElement("button");
+    b.className = "atariPickBtn";
+    var emojiSpan = document.createElement("span");
+    emojiSpan.className = "atariPickEmoji";
+    emojiSpan.textContent = REWARDS[rk].emoji;
+    var nameSpan = document.createElement("span");
+    nameSpan.className = "atariPickName";
+    nameSpan.textContent = REWARDS[rk].name;
+    b.appendChild(emojiSpan);
+    b.appendChild(nameSpan);
+    b.onclick = function(){ pickAtariReward(rk); };
+    list.appendChild(b);
+  });
+  document.getElementById("atariModal").classList.add("show");
+}
+
+function pickAtariReward(rk){
+  if ((state.stock.atari||0) <= 0){ closeAtariModal(); return; }
+  state.stock.atari -= 1;
+  state.stock[rk] = (state.stock[rk]||0) + 1;
+  state.log.unshift({ date:todayStr(), type:"use", detail:"㊗️ 当たり を "+REWARDS[rk].emoji+REWARDS[rk].name+" と交換", pt:0 });
+  state.log = state.log.slice(0,200);
+  save(); render();
+  closeAtariModal();
+  showFlash(REWARDS[rk].emoji+" 追加！");
+}
+
+function closeAtariModal(){
+  document.getElementById("atariModal").classList.remove("show");
+}
+
 var manualPick = { d1:null, d2:null };
 
 function openManual(){
@@ -778,8 +833,10 @@ function render(){
       '<span class="stockName">'+REWARDS[rk].name+'</span>'+
       '<span class="stockCount">×'+n+'</span>';
     var ub = document.createElement("button");
-    ub.className = "useBtn"; ub.textContent = "使う"; ub.disabled = !has;
-    ub.onclick = function(){ consume(rk); };
+    ub.className = "useBtn";
+    ub.textContent = (rk === "atari") ? "交換する" : "使う";
+    ub.disabled = !has;
+    ub.onclick = (rk === "atari") ? openAtariPick : function(){ consume(rk); };
     row.appendChild(ub);
     return row;
   }
@@ -860,6 +917,12 @@ document.getElementById("manualConfirm").onclick = function(e){ e.stopPropagatio
 document.querySelector("#manualModal .modalCard").onclick = function(e){ e.stopPropagation(); };
 document.getElementById("manualModal").onclick = function(e){
   if (e.target === document.getElementById("manualModal")) closeManual();
+};
+
+document.getElementById("atariClose").onclick = function(e){ e.stopPropagation(); closeAtariModal(); };
+document.querySelector("#atariModal .modalCard").onclick = function(e){ e.stopPropagation(); };
+document.getElementById("atariModal").onclick = function(e){
+  if (e.target === document.getElementById("atariModal")) closeAtariModal();
 };
 
 // ───────── 起動（合言葉の確認を先に済ませる） ─────────
