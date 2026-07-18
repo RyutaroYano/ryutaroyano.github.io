@@ -161,12 +161,12 @@
   </div>
 
   <div class="section">
-    <div class="secTitle">やったことを記録</div>
+    <div class="secTitle">点数をゲット</div>
     <div class="actionGrid" id="actionGrid"></div>
   </div>
 
   <div class="section">
-    <div class="secTitle">サイコロを振る（1回=3点）</div>
+    <div class="secTitle">サイコロを振る（3点/1回）</div>
     <div class="diceRow">
       <div class="dice" id="dice0">?</div>
       <div class="dice" id="dice1">?</div>
@@ -231,12 +231,12 @@ var ACTIONS = [
   { id:"plan",      emoji:"🧠", label:"昨日の振り返りと今日の計画を立てた", pt:1, once:true, category:"土台" },
   { id:"stretch5",  emoji:"🧘", label:"ストレッチを5分やった", pt:1, once:true, category:"健康" },
   { id:"note5",     emoji:"📝", label:"note記事を5分書いた", pt:1, once:true, category:"スキル" },
-  { id:"yt5",       emoji:"🎬", label:"動画編集を5分やった", pt:1, once:true, category:"スキル" },
+  { id:"yt5",       emoji:"🎬", label:"動画・音声編集を5分やった", pt:1, once:true, category:"スキル" },
   { id:"walk8888",  emoji:"🚶", label:"8888歩以上歩いた", pt:1, once:true, category:"健康" },
   { id:"contact",   emoji:"📧", label:"関係者に連絡を1件送った", pt:1, category:"人間関係" },
   { id:"canele",    emoji:"🥐", label:"カヌレの仕事を33分33秒やった", pt:1, category:"経済" },
   { id:"note33",    emoji:"📝", label:"note記事を33分33秒書いた", pt:1, category:"スキル" },
-  { id:"yt33",      emoji:"🎬", label:"動画編集を33分33秒やった", pt:1, category:"スキル" },
+  { id:"yt33",      emoji:"🎬", label:"動画・音声編集を33分33秒やった", pt:1, category:"スキル" },
 ];
 
 // スプレッドシートの列順はここで決める（カテゴリごとにグループ化）。
@@ -257,24 +257,25 @@ function dailyLogColumns(){
 }
 
 var REWARDS = {
-  atari:      { emoji:"㊗️", name:"当たり（どれか一回）", short:"当たり" },
+  atari:      { emoji:"㊗️", name:"当たり", short:"当たり" },
   onsen:      { emoji:"♨️", name:"温泉", short:"温泉" },
   self:       { emoji:"🔞", name:"自慰", short:"自慰" },
   eatout:     { emoji:"🍱", name:"外食", short:"外食" },
   manga:      { emoji:"📔", name:"漫画", short:"漫画" },
-  off:        { emoji:"🛁", name:"湯船につかる", short:"湯船" },
+  off:        { emoji:"🛁", name:"湯船", short:"湯船" },
   smartphone: { emoji:"📱", name:"スマホ10分", short:"スマホ" },
+  ytwatch:    { emoji:"📺", name:"YouTube", short:"YouTube" },
 };
-// 表示順：当日限り(湯船→スマホ→漫画) → 持ち越し可(当たり→温泉→外食→自慰)
-var REWARD_ORDER = ["off","smartphone","manga","atari","onsen","eatout","self"];
+// 表示順：当日限り(湯船→スマホ→漫画→YouTube) → 持ち越し可(温泉→外食→自慰→当たり)
+var REWARD_ORDER = ["off","smartphone","manga","ytwatch","onsen","eatout","self","atari"];
 // 翌日に持ち越せる報酬（これ以外は日をまたぐと0に戻る）
 var CARRYOVER_OK = ["eatout","onsen","atari","self"];
 
 // 盤面（線対称・優先順で読める）：
-// ①ゾロ目=4-4自慰/7-7当たり/8-8温泉/他漫画 ②5と1〜4=外食(15は強い) ③1か8を含む=スマホ ④残り=湯船
+// ①1-1/1-2/2-1=YouTube視聴(3/64) ②ゾロ目=4-4自慰/7-7当たり/8-8温泉/他漫画 ③5と1〜4=外食(15は強い) ④1か8を含む=スマホ ⑤残り=湯船
 var BOARD = [
-  ["manga","smartphone","smartphone","smartphone","eatout","smartphone","smartphone","smartphone"],
-  ["smartphone","manga","off","off","eatout","off","off","smartphone"],
+  ["ytwatch","ytwatch","smartphone","smartphone","eatout","smartphone","smartphone","smartphone"],
+  ["ytwatch","manga","off","off","eatout","off","off","smartphone"],
   ["smartphone","off","manga","off","eatout","off","off","smartphone"],
   ["smartphone","off","off","self","eatout","off","off","smartphone"],
   ["eatout","eatout","eatout","eatout","manga","off","off","smartphone"],
@@ -291,7 +292,7 @@ function addDays(s,n){ var p=s.split("-").map(Number); var d=new Date(p[0],p[1]-
 function yesterdayStr(){ return addDays(todayStr(),-1); }
 
 // ───────── 状態 ─────────
-var ZERO_STOCK = { atari:0,onsen:0,self:0,eatout:0,manga:0,off:0,smartphone:0 };
+var ZERO_STOCK = { atari:0,onsen:0,self:0,eatout:0,manga:0,off:0,smartphone:0,ytwatch:0 };
 var state = { points:0, stock:Object.assign({},ZERO_STOCK), log:[], daily:{}, lastSettled:null, earnedTotal:0, miyazaki:0 };
 var rolling = false;
 
@@ -777,10 +778,11 @@ function renderBoardTable(){
 function render(){
   document.getElementById("points").textContent = state.points;
 
-  // 加点ボタン
+  // 加点ボタン（一日一回グループと、複数回OKグループに分けて表示）
   var ag = document.getElementById("actionGrid");
   ag.innerHTML = "";
-  ACTIONS.forEach(function(a){
+
+  function buildActionBtn(a){
     var td = todayStr();
     var usedToday = a.once && state.daily[td] && state.daily[td][a.id];
     var btn = document.createElement("button");
@@ -807,8 +809,22 @@ function render(){
       '<span class="actionLabel">'+a.label+dots+'</span>'+
       '<span class="actionPt">+'+a.pt+'</span>';
     btn.onclick = function(){ addPoint(a); };
-    ag.appendChild(btn);
-  });
+    return btn;
+  }
+
+  var onceBox = document.createElement("div");
+  onceBox.className = "todayBox";
+  var onceLabel = document.createElement("div");
+  onceLabel.className = "todayBoxLabel";
+  onceLabel.textContent = "一日一回";
+  onceBox.appendChild(onceLabel);
+  var onceInner = document.createElement("div");
+  onceInner.className = "todayBoxInner";
+  ACTIONS.filter(function(a){ return a.once; }).forEach(function(a){ onceInner.appendChild(buildActionBtn(a)); });
+  onceBox.appendChild(onceInner);
+  ag.appendChild(onceBox);
+
+  ACTIONS.filter(function(a){ return !a.once; }).forEach(function(a){ ag.appendChild(buildActionBtn(a)); });
 
   // ロールボタン
   var rb = document.getElementById("rollBtn");
@@ -828,9 +844,10 @@ function render(){
     var n = state.stock[rk]||0, has = n>0;
     var row = document.createElement("div");
     row.className = "stockRow"; row.style.opacity = has ? 1 : .5;
+    var nameHtml = REWARDS[rk].name + (rk === "atari" ? '<span class="specialTag">70点で確定</span>' : "");
     row.innerHTML =
       '<span class="stockEmoji">'+REWARDS[rk].emoji+'</span>'+
-      '<span class="stockName">'+REWARDS[rk].name+'</span>'+
+      '<span class="stockName">'+nameHtml+'</span>'+
       '<span class="stockCount">×'+n+'</span>';
     var ub = document.createElement("button");
     ub.className = "useBtn";
