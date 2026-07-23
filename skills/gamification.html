@@ -1096,7 +1096,7 @@ function buildRewardSettingsRow(r, groupArr, idxInGroup){
 
   var countLabel = document.createElement("span");
   countLabel.className = "settingsCountLabel";
-  countLabel.textContent = isAtari ? "盤面：7-7に固定" : "盤面："+countOnBoard(r.id, state.board)+"/64（盤面編集で変更）";
+  countLabel.textContent = isAtari ? "盤面：7-7に固定" : "盤面："+countOnBoard(r.id, state.board)+"/64";
 
   var upBtn = document.createElement("button");
   upBtn.className = "settingsReorderBtn"; upBtn.textContent = "▲"; upBtn.disabled = isAtari || (idxInGroup===0);
