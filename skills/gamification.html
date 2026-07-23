@@ -14,7 +14,9 @@
     font-family: 'Hiragino Sans','Noto Sans JP',sans-serif; color: #2b2b2b;
     -webkit-user-select: none; user-select: none;
   }
-  .wrap { max-width: 480px; margin: 0 auto; padding: 20px 16px 48px; }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 20px 16px 48px; position:relative; }
+  .settingsGear { position:absolute; top:20px; right:16px; background:none; border:none; font-size:20px; cursor:pointer; opacity:.55; padding:4px; }
+  .settingsGear:active { opacity:.85; }
   .authInput { width:100%; box-sizing:border-box; padding:12px 14px; font-size:16px; border:1.5px solid #ddd; border-radius:12px; margin-bottom:12px; }
   h1 { font-size: 26px; margin: 0 0 4px; text-align: center; }
   .sub { font-size: 13px; color: #888; text-align: center; margin: 0 0 18px; }
@@ -110,7 +112,7 @@
   .boardTable th:first-child { width:14px; }
   .boardTable td { border:1px solid #eee; padding:4px 1px; text-align:center; line-height:1.25; }
   .boardTable .bEmoji { display:block; font-size:13px; }
-  .boardTable .bName { display:block; color:#888; font-size:8px; white-space:nowrap; }
+  .boardTable .bName { display:block; color:#888; font-size:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
   .boardTable td.rare { background:#fff7ef; }
   .logEmpty { font-size:13px; color:#aaa; padding:8px 2px; }
   .logRow { display:flex; align-items:center; gap:8px; font-size:12.5px; padding:6px 4px; border-bottom:1px solid #f0f0f4; }
@@ -122,6 +124,36 @@
   .logMilestone { font-size:15px; }
   .specialBox { display:flex; align-items:center; gap:10px; background:#eef2fb; border:1.5px solid #b9c6e8; border-radius:12px; padding:10px 12px; margin-top:12px; }
   .specialTag { font-size:10px; color:#6a7bb0; margin-left:6px; }
+
+  .modalOverlay.fullscreen .modalCard { max-width:480px; width:100%; height:100%; max-height:100%; border-radius:0; overflow-y:auto; display:flex; flex-direction:column; }
+  .settingsSection { margin-bottom:26px; }
+  .settingsSectionTitle { font-size:14px; font-weight:700; margin-bottom:10px; }
+  .settingsGroupLabel { font-size:12px; font-weight:700; color:#999; margin:10px 0 2px; }
+  .settingsGroupLabel:first-child { margin-top:0; }
+  .settingsList { display:flex; flex-direction:column; gap:10px; }
+  .settingsRow { border:1.5px solid #e2e2ea; border-radius:12px; padding:10px 12px; background:#fafafa; }
+  .settingsRowLine1 { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .settingsRowLine2 { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .settingsEmojiInput { width:2.6em; text-align:center; padding:8px 4px; border:1.5px solid #ddd; border-radius:8px; font-size:16px; }
+  .settingsTextInput { flex:1; padding:8px 10px; border:1.5px solid #ddd; border-radius:8px; font-size:14px; min-width:0; }
+  .settingsNumInput { width:4.5em; padding:8px 6px; border:1.5px solid #ddd; border-radius:8px; font-size:14px; }
+  .settingsSelect { padding:8px 6px; border:1.5px solid #ddd; border-radius:8px; font-size:13px; }
+  .settingsToggleLabel { display:flex; align-items:center; gap:4px; font-size:12px; color:#666; }
+  .settingsReorderBtn { background:#eee; border:none; border-radius:6px; width:26px; height:26px; font-size:12px; cursor:pointer; }
+  .settingsReorderBtn:disabled { opacity:.3; cursor:default; }
+  .settingsDeleteBtn { background:none; border:none; font-size:16px; cursor:pointer; opacity:.6; margin-left:auto; }
+  .settingsDeleteBtn:disabled { opacity:.2; cursor:default; }
+  .settingsCountLabel { font-size:12px; color:#888; }
+  .settingsAddBtn { display:block; width:100%; margin-top:8px; background:#eef2fb; border:1.5px dashed #b9c6e8; color:#3a3a5c; border-radius:10px; padding:10px 0; font-size:13px; font-weight:700; cursor:pointer; }
+  .settingsSaveBtn { display:block; width:100%; margin-top:10px; background:#3a3a5c; color:#fff; border:none; border-radius:10px; padding:11px 0; font-size:14px; font-weight:700; cursor:pointer; }
+  .settingsSaveBtn:disabled { background:#ccc; cursor:default; }
+  .settingsValidation { font-size:12px; margin-top:8px; padding:8px 10px; border-radius:8px; background:#f4f4f7; color:#666; }
+  .settingsValidation.ok { background:#e8f7ee; color:#2b7; }
+  .settingsValidation.err { background:#fdf0ee; color:#c0503a; }
+  .boardEditCell { cursor:pointer; }
+  .boardEditCell:active { background:#eef2fb; }
+  .boardCountList { display:flex; flex-direction:column; gap:2px; margin-top:10px; }
+  .boardCountRow { display:flex; justify-content:space-between; font-size:12px; color:#555; padding:4px 2px; border-bottom:1px solid #f0f0f4; }
 
   .reset { display:block; margin:28px auto 0; background:none; border:none; color:#bbb; font-size:12px; text-decoration:underline; cursor:pointer; }
   .resetConfirm { margin-top:28px; padding:14px 16px; border:1.5px solid #f0c9c0; background:#fdf3f0; border-radius:12px; text-align:center; }
@@ -149,6 +181,7 @@
 </div>
 
 <div class="wrap">
+  <button class="settingsGear" id="settingsBtn" aria-label="設定" title="設定">⚙️</button>
   <h1>🎲 ゲーミフィケーション</h1>
   <p class="sub">行動を貯めて、サイコロで報酬を解禁する</p>
 
@@ -203,6 +236,52 @@
     </div>
   </div>
 
+  <div class="modalOverlay fullscreen" id="settingsModal">
+    <div class="modalCard">
+      <div class="modalTitle">⚙️ 設定</div>
+      <div class="modalSub">やることリストと報酬リストを編集できます。</div>
+
+      <div class="settingsSection">
+        <div class="settingsSectionTitle">やることリスト</div>
+        <div class="settingsList" id="actionsSettingsList"></div>
+        <button class="settingsAddBtn" id="addActionBtn">＋ やることを追加</button>
+        <div class="settingsValidation" id="actionsValidation"></div>
+        <button class="settingsSaveBtn" id="saveActionsBtn">やることリストを保存</button>
+      </div>
+
+      <div class="settingsSection">
+        <div class="settingsSectionTitle">報酬リスト</div>
+        <div class="settingsList" id="rewardsSettingsList"></div>
+        <button class="settingsAddBtn" id="addRewardBtn">＋ 報酬を追加</button>
+        <div class="settingsValidation" id="rewardsValidation"></div>
+        <button class="settingsSaveBtn" id="saveRewardsBtn">報酬リストを保存</button>
+      </div>
+
+      <div class="settingsSection">
+        <div class="settingsSectionTitle">盤面編集</div>
+        <div class="modalSub">マスをタップすると、対称なマスとまとめて報酬を変更できます。新しく追加した報酬は、先に報酬リストを保存してからここで選べるようになります。</div>
+        <div class="boardWrap"><table class="boardTable" id="boardEditTable"></table></div>
+        <div class="boardCountList" id="boardEditorCounts"></div>
+        <button class="settingsSaveBtn" id="saveBoardBtn">盤面を保存</button>
+      </div>
+
+      <div class="modalBtnRow">
+        <button class="modalClose" id="settingsClose">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modalOverlay" id="boardCellPickModal">
+    <div class="modalCard">
+      <div class="modalTitle" id="boardCellPickTitle">マスを編集</div>
+      <div class="modalSub">このマスに割り当てる報酬を選んでください。</div>
+      <div class="atariPickList" id="boardCellPickList"></div>
+      <div class="modalBtnRow">
+        <button class="modalClose" id="boardCellPickClose">閉じる</button>
+      </div>
+    </div>
+  </div>
+
   <div class="section">
     <div class="secTitle">報酬ストック</div>
     <div class="stockList" id="stockList"></div>
@@ -222,10 +301,12 @@
 </div>
 
 <script>
-// ───────── 定数 ─────────
+// ───────── 定数（初期値・設定画面未使用時のフォールバック） ─────────
 var COST = 3;
 
-var ACTIONS = [
+function cloneDefault(x){ return JSON.parse(JSON.stringify(x)); }
+
+var DEFAULT_ACTIONS = [
   { id:"sleep",     emoji:"😴", label:"前日23時までに就寝 or 7.5時間以上寝た", pt:1, once:true, category:"土台" },
   { id:"morning",   emoji:"🌅", label:"朝のルーティンを完遂した", pt:1, once:true, category:"土台" },
   { id:"plan",      emoji:"🧠", label:"昨日の振り返りと今日の計画を立てた", pt:1, once:true, category:"土台" },
@@ -233,47 +314,44 @@ var ACTIONS = [
   { id:"note5",     emoji:"📝", label:"note記事を5分書いた", pt:1, once:true, category:"スキル" },
   { id:"yt5",       emoji:"🎬", label:"動画・音声編集を5分やった", pt:1, once:true, category:"スキル" },
   { id:"walk8888",  emoji:"🚶", label:"8888歩以上歩いた", pt:1, once:true, category:"健康" },
-  { id:"contact",   emoji:"📧", label:"関係者に連絡を1件送った", pt:1, category:"人間関係" },
-  { id:"canele",    emoji:"🥐", label:"カヌレの仕事を33分33秒やった", pt:1, category:"経済" },
-  { id:"note33",    emoji:"📝", label:"note記事を33分33秒書いた", pt:1, category:"スキル" },
-  { id:"yt33",      emoji:"🎬", label:"動画・音声編集を33分33秒やった", pt:1, category:"スキル" },
+  { id:"contact",   emoji:"📧", label:"関係者に連絡を1件送った", pt:1, once:false, category:"人間関係" },
+  { id:"canele",    emoji:"🥐", label:"カヌレの仕事を33分33秒やった", pt:1, once:false, category:"経済" },
+  { id:"note33",    emoji:"📝", label:"note記事を33分33秒書いた", pt:1, once:false, category:"スキル" },
+  { id:"yt33",      emoji:"🎬", label:"動画・音声編集を33分33秒やった", pt:1, once:false, category:"スキル" },
 ];
 
 // スプレッドシートの列順はここで決める（カテゴリごとにグループ化）。
-// アプリ内の操作順（ACTIONS配列の順）とは独立している。
+// アプリ内の操作順（state.actions配列の順）とは独立している。
 var CATEGORY_ORDER = ["土台", "健康", "人間関係", "スキル", "経済"];
 function dailyLogColumns(){
   var cols = [];
   CATEGORY_ORDER.forEach(function(cat){
-    ACTIONS.forEach(function(a){
+    state.actions.forEach(function(a){
       if (a.category === cat) cols.push({ id:a.id, label:a.label, category:cat });
     });
   });
   // 万一カテゴリ未設定の項目があれば最後に足す（漏れ防止）
-  ACTIONS.forEach(function(a){
+  state.actions.forEach(function(a){
     if (CATEGORY_ORDER.indexOf(a.category) === -1) cols.push({ id:a.id, label:a.label, category:a.category||"" });
   });
   return cols;
 }
 
-var REWARDS = {
-  atari:      { emoji:"㊗️", name:"当たり", short:"当たり" },
-  onsen:      { emoji:"♨️", name:"温泉", short:"温泉" },
-  self:       { emoji:"🔞", name:"自慰", short:"自慰" },
-  eatout:     { emoji:"🍱", name:"外食", short:"外食" },
-  manga:      { emoji:"📔", name:"漫画", short:"漫画" },
-  off:        { emoji:"🛁", name:"湯船", short:"湯船" },
-  smartphone: { emoji:"📱", name:"スマホ10分", short:"スマホ" },
-  ytwatch:    { emoji:"📺", name:"YouTube", short:"YouTube" },
-};
-// 表示順：当日限り(湯船→スマホ→漫画→YouTube) → 持ち越し可(温泉→外食→自慰→当たり)
-var REWARD_ORDER = ["off","smartphone","manga","ytwatch","onsen","eatout","self","atari"];
-// 翌日に持ち越せる報酬（これ以外は日をまたぐと0に戻る）
-var CARRYOVER_OK = ["eatout","onsen","atari","self"];
+// carryover = 翌日に持ち越せるか（falseは日をまたぐと0に戻る＝当日限り）。
+// 各報酬が盤面の何マスを占めるかはstate.boardの実際の中身から数える（別途持たない・二重管理しない）。
+var DEFAULT_REWARDS = [
+  { id:"off",        emoji:"🛁", name:"湯船", carryover:false },
+  { id:"smartphone", emoji:"📱", name:"スマホ10分", carryover:false },
+  { id:"manga",       emoji:"📔", name:"漫画", carryover:false },
+  { id:"ytwatch",     emoji:"📺", name:"YouTube", carryover:false },
+  { id:"onsen",       emoji:"♨️", name:"温泉", carryover:true },
+  { id:"eatout",      emoji:"🍱", name:"外食", carryover:true },
+  { id:"self",        emoji:"🔞", name:"自慰", carryover:true },
+  { id:"atari",       emoji:"㊗️", name:"当たり", carryover:true },
+];
 
-// 盤面（線対称・優先順で読める）：
-// ①1-1/1-2/2-1=YouTube視聴(3/64) ②ゾロ目=4-4自慰/7-7当たり/8-8温泉/他漫画 ③5と1〜4=外食(15は強い) ④1か8を含む=スマホ ⑤残り=湯船
-var BOARD = [
+// 盤面（線対称・優先順で読める）：設定画面の「盤面編集」でマス単位に編集する。
+var DEFAULT_BOARD = [
   ["ytwatch","ytwatch","smartphone","smartphone","eatout","smartphone","smartphone","smartphone"],
   ["ytwatch","manga","off","off","eatout","off","off","smartphone"],
   ["smartphone","off","manga","off","eatout","off","off","smartphone"],
@@ -283,7 +361,32 @@ var BOARD = [
   ["smartphone","off","off","off","off","off","atari","smartphone"],
   ["smartphone","smartphone","smartphone","smartphone","smartphone","smartphone","smartphone","onsen"],
 ];
-function rollToReward(a,b){ return BOARD[a-1][b-1]; }
+function rollToReward(a,b){ return state.board[a-1][b-1]; }
+
+// 報酬idからreward定義を引くための索引。state.rewardsを差し替えたら必ず呼び直す。
+var rewardsIndex = {};
+function reindexRewards(){
+  rewardsIndex = {};
+  state.rewards.forEach(function(r){ rewardsIndex[r.id] = r; });
+}
+
+// 指定の盤面(省略時はstate.board)で、報酬rkが何マスを占めているかを数える。
+function countOnBoard(rk, board){
+  board = board || state.board;
+  var n = 0;
+  for (var a=0; a<8; a++) for (var b=0; b<8; b++) if (board[a][b] === rk) n++;
+  return n;
+}
+
+// 盤面のマス数が少ない報酬は「レア」として盤面表示を強調する。
+var RARE_THRESHOLD = 2;
+function isRare(rk, board){ return countOnBoard(rk, board) <= RARE_THRESHOLD; }
+
+function buildZeroStock(){
+  var z = {};
+  state.rewards.forEach(function(r){ z[r.id] = 0; });
+  return z;
+}
 
 // ───────── 日付ユーティリティ ─────────
 function fmt(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
@@ -292,8 +395,15 @@ function addDays(s,n){ var p=s.split("-").map(Number); var d=new Date(p[0],p[1]-
 function yesterdayStr(){ return addDays(todayStr(),-1); }
 
 // ───────── 状態 ─────────
-var ZERO_STOCK = { atari:0,onsen:0,self:0,eatout:0,manga:0,off:0,smartphone:0,ytwatch:0 };
-var state = { points:0, stock:Object.assign({},ZERO_STOCK), log:[], daily:{}, lastSettled:null, earnedTotal:0, miyazaki:0 };
+var state = {
+  points:0, log:[], daily:{}, lastSettled:null, earnedTotal:0, miyazaki:0,
+  actions:cloneDefault(DEFAULT_ACTIONS),
+  rewards:cloneDefault(DEFAULT_REWARDS),
+  board:cloneDefault(DEFAULT_BOARD),
+  stock:null
+};
+reindexRewards();
+state.stock = buildZeroStock();
 var rolling = false;
 
 // ───────── 保存・読み込み（Google Drive / GAS 同期 ＋ オフライン対応） ─────────
@@ -319,6 +429,23 @@ function gasUrl(){
   return GAS_URL + (GAS_SECRET ? "?secret="+encodeURIComponent(GAS_SECRET) : "");
 }
 
+// 読み込んだ生データ(s)をstateへ適用する共通処理。
+// actions/rewards/boardが無い（=まだ設定画面を使ったことがない）場合はDEFAULT_*から補う。
+// stockのデフォルトはrewardsが確定した後でないと組み立てられないので、この順番を守ること。
+function applyLoadedState(s){
+  state.points = s.points||0;
+  state.actions = (s.actions && s.actions.length) ? s.actions : cloneDefault(DEFAULT_ACTIONS);
+  state.rewards = (s.rewards && s.rewards.length) ? s.rewards : cloneDefault(DEFAULT_REWARDS);
+  reindexRewards();
+  state.board = (s.board && Array.isArray(s.board) && s.board.length === 8) ? s.board : cloneDefault(DEFAULT_BOARD);
+  state.stock = Object.assign(buildZeroStock(), s.stock||{});
+  state.log = s.log||[];
+  state.daily = s.daily||{};
+  state.lastSettled = s.lastSettled||null;
+  state.earnedTotal = s.earnedTotal||0;
+  state.miyazaki = s.miyazaki||0;
+}
+
 // この端末にstateをそのまま覚えさせる（オフラインでも直前の状態から始められるように）
 function saveLocal(){
   try { localStorage.setItem(LOCAL_KEY, JSON.stringify(state)); } catch(e){}
@@ -327,14 +454,7 @@ function loadLocal(){
   try {
     var raw = localStorage.getItem(LOCAL_KEY);
     if (!raw) return false;
-    var s = JSON.parse(raw);
-    state.points = s.points||0;
-    state.stock = Object.assign({}, ZERO_STOCK, s.stock||{});
-    state.log = s.log||[];
-    state.daily = s.daily||{};
-    state.lastSettled = s.lastSettled||null;
-    state.earnedTotal = s.earnedTotal||0;
-    state.miyazaki = s.miyazaki||0;
+    applyLoadedState(JSON.parse(raw));
     return true;
   } catch(e){ return false; }
 }
@@ -400,13 +520,7 @@ function load(){
     .then(function(r){ return r.json(); })
     .then(function(s){
       if (s && !s.error){
-        state.points = s.points||0;
-        state.stock = Object.assign({}, ZERO_STOCK, s.stock||{});
-        state.log = s.log||[];
-        state.daily = s.daily||{};
-        state.lastSettled = s.lastSettled||null;
-        state.earnedTotal = s.earnedTotal||0;
-        state.miyazaki = s.miyazaki||0;
+        applyLoadedState(s);
         saveLocal();
         hasUnsynced = false;
         setSync("同期済み", "ok");
@@ -431,9 +545,9 @@ function settlePastDays(){
   // 日をまたいでいたら、持ち越し不可の報酬を0に戻し、前日の記録をスプレッドシートへ送る
   if (state.lastSettled < today){
     var prevDate = state.lastSettled;
-    REWARD_ORDER.forEach(function(rk){
-      if (CARRYOVER_OK.indexOf(rk) === -1){
-        state.stock[rk] = 0;
+    state.rewards.forEach(function(r){
+      if (!r.carryover){
+        state.stock[r.id] = 0;
       }
     });
     state.lastSettled = today;
@@ -450,7 +564,7 @@ function buildDailyLogPayload(dateStr){
   var rec = state.daily[dateStr] || {};
   var counts = {};
   var totalPoints = 0;
-  ACTIONS.forEach(function(a){
+  state.actions.forEach(function(a){
     var n;
     if (a.once){
       n = rec[a.id] ? 1 : 0;
@@ -604,12 +718,17 @@ function roll(){
       var rk = rollToReward(A,B);
       state.points -= COST;
       state.stock[rk] = (state.stock[rk]||0) + 1;
-      state.log.unshift({ date:todayStr(), type:"roll", detail:A+""+B+" → "+REWARDS[rk].emoji+REWARDS[rk].name, pt:-COST });
+      state.log.unshift({ date:todayStr(), type:"roll", detail:A+""+B+" → "+rewardsIndex[rk].emoji+rewardsIndex[rk].name, pt:-COST });
       state.log = state.log.slice(0,200);
       rolling = false;
       save(); render();
-      document.getElementById("resultInline").innerHTML =
-        '<span class="resultEmoji">'+REWARDS[rk].emoji+'</span><span class="resultName">'+REWARDS[rk].name+'</span>';
+      var resultInline = document.getElementById("resultInline");
+      resultInline.innerHTML = "";
+      var resEmoji = document.createElement("span");
+      resEmoji.className = "resultEmoji"; resEmoji.textContent = rewardsIndex[rk].emoji;
+      var resName = document.createElement("span");
+      resName.className = "resultName"; resName.textContent = rewardsIndex[rk].name;
+      resultInline.appendChild(resEmoji); resultInline.appendChild(resName);
     }
   }, 90);
 }
@@ -617,30 +736,30 @@ function roll(){
 function consume(rk){
   if ((state.stock[rk]||0) <= 0) return;
   state.stock[rk] = (state.stock[rk]||0) - 1;
-  state.log.unshift({ date:todayStr(), type:"use", detail:REWARDS[rk].emoji+REWARDS[rk].name+" を消費", pt:0 });
+  state.log.unshift({ date:todayStr(), type:"use", detail:rewardsIndex[rk].emoji+rewardsIndex[rk].name+" を消費", pt:0 });
   state.log = state.log.slice(0,200);
   save(); render();
-  showFlash(REWARDS[rk].emoji+" 消費");
+  showFlash(rewardsIndex[rk].emoji+" 消費");
 }
 
-// 当たり＝その場でREWARDS一覧から好きな報酬に交換する券。ストックを直接+1するのではなく、
+// 当たり＝その場でstate.rewards一覧から好きな報酬に交換する券。ストックを直接+1するのではなく、
 // 選択式にすることで「結局何に使うか」を使うタイミングで決められるようにしている。
 function openAtariPick(){
   if ((state.stock.atari||0) <= 0) return;
   var list = document.getElementById("atariPickList");
   list.innerHTML = "";
-  REWARD_ORDER.filter(function(rk){ return rk !== "atari"; }).forEach(function(rk){
+  state.rewards.filter(function(r){ return r.id !== "atari"; }).forEach(function(r){
     var b = document.createElement("button");
     b.className = "atariPickBtn";
     var emojiSpan = document.createElement("span");
     emojiSpan.className = "atariPickEmoji";
-    emojiSpan.textContent = REWARDS[rk].emoji;
+    emojiSpan.textContent = r.emoji;
     var nameSpan = document.createElement("span");
     nameSpan.className = "atariPickName";
-    nameSpan.textContent = REWARDS[rk].name;
+    nameSpan.textContent = r.name;
     b.appendChild(emojiSpan);
     b.appendChild(nameSpan);
-    b.onclick = function(){ pickAtariReward(rk); };
+    b.onclick = function(){ pickAtariReward(r.id); };
     list.appendChild(b);
   });
   document.getElementById("atariModal").classList.add("show");
@@ -650,11 +769,11 @@ function pickAtariReward(rk){
   if ((state.stock.atari||0) <= 0){ closeAtariModal(); return; }
   state.stock.atari -= 1;
   state.stock[rk] = (state.stock[rk]||0) + 1;
-  state.log.unshift({ date:todayStr(), type:"use", detail:"㊗️ 当たり を "+REWARDS[rk].emoji+REWARDS[rk].name+" と交換", pt:0 });
+  state.log.unshift({ date:todayStr(), type:"use", detail:"㊗️ 当たり を "+rewardsIndex[rk].emoji+rewardsIndex[rk].name+" と交換", pt:0 });
   state.log = state.log.slice(0,200);
   save(); render();
   closeAtariModal();
-  showFlash(REWARDS[rk].emoji+" 追加！");
+  showFlash(rewardsIndex[rk].emoji+" 追加！");
 }
 
 function closeAtariModal(){
@@ -695,7 +814,7 @@ function updateManualResult(){
   var btn = document.getElementById("manualConfirm");
   if (manualPick.d1 && manualPick.d2){
     var rk = rollToReward(manualPick.d1, manualPick.d2);
-    res.innerHTML = manualPick.d1+" と "+manualPick.d2+" → "+REWARDS[rk].emoji+" "+REWARDS[rk].name;
+    res.textContent = manualPick.d1+" と "+manualPick.d2+" → "+rewardsIndex[rk].emoji+" "+rewardsIndex[rk].name;
     btn.disabled = false;
   } else {
     res.textContent = "目を2つ選ぶと結果が出ます";
@@ -710,7 +829,7 @@ function manualConfirm(){
   var rk = rollToReward(A, B);
   state.points -= COST;
   state.stock[rk] = (state.stock[rk]||0) + 1;
-  state.log.unshift({ date:todayStr(), type:"manual", detail:A+"-"+B+" → "+REWARDS[rk].emoji+REWARDS[rk].name, pt:-COST });
+  state.log.unshift({ date:todayStr(), type:"manual", detail:A+"-"+B+" → "+rewardsIndex[rk].emoji+rewardsIndex[rk].name, pt:-COST });
   state.log = state.log.slice(0,200);
   save(); render();
   closeManual();
@@ -719,8 +838,13 @@ function manualConfirm(){
   document.getElementById("dice1").textContent = B;
   document.getElementById("dice0").classList.remove("rolling");
   document.getElementById("dice1").classList.remove("rolling");
-  document.getElementById("resultInline").innerHTML =
-    '<span class="resultEmoji">'+REWARDS[rk].emoji+'</span><span class="resultName">'+REWARDS[rk].name+'</span>';
+  var resultInline2 = document.getElementById("resultInline");
+  resultInline2.innerHTML = "";
+  var resEmoji2 = document.createElement("span");
+  resEmoji2.className = "resultEmoji"; resEmoji2.textContent = rewardsIndex[rk].emoji;
+  var resName2 = document.createElement("span");
+  resName2.className = "resultName"; resName2.textContent = rewardsIndex[rk].name;
+  resultInline2.appendChild(resEmoji2); resultInline2.appendChild(resName2);
 }
 
 function closeManual(){
@@ -738,7 +862,7 @@ function consumeMiyazaki(){
 
 function doReset(){
   state.points = 0;
-  state.stock = Object.assign({}, ZERO_STOCK);
+  state.stock = buildZeroStock();
   state.log = []; state.daily = {}; state.lastSettled = todayStr();
   state.earnedTotal = 0; state.miyazaki = 0;
   // サイコロの目と結果表示も初期状態に戻す
@@ -751,28 +875,441 @@ function doReset(){
   showFlash("リセットしました");
 }
 
+// ───────── 設定画面（やることリスト・報酬リストの編集） ─────────
+// state.actions/state.rewardsは開いている間ずっと編集反映されるわけではなく、
+// いったんドラフト配列にコピーして編集し、各セクションの保存ボタンでstateへコミットする。
+var actionsDraft = [];
+var rewardsDraft = [];
+var boardDraft = [];
+
+function flashButtonLabel(btn, tempText){
+  if (!btn) return;
+  var original = btn.textContent;
+  btn.textContent = tempText;
+  setTimeout(function(){ btn.textContent = original; }, 1200);
+}
+
+function openSettings(){
+  actionsDraft = cloneDefault(state.actions);
+  rewardsDraft = cloneDefault(state.rewards);
+  boardDraft = cloneDefault(state.board);
+  renderActionsSettings();
+  renderRewardsSettings();
+  renderBoardEditor();
+  document.getElementById("settingsModal").classList.add("show");
+}
+function closeSettings(){
+  document.getElementById("settingsModal").classList.remove("show");
+}
+
+// 配列内のitemA/itemBの実位置を入れ替える（グループでフィルタしたサブ配列内での並び替えでも、
+// 元のactionsDraft/rewardsDraft自体の相対順序が変わるので、フィルタ結果の順序も正しく変わる）。
+function swapDraftItems(draftArr, itemA, itemB){
+  var ia = draftArr.indexOf(itemA), ib = draftArr.indexOf(itemB);
+  if (ia<0 || ib<0) return;
+  var t = draftArr[ia]; draftArr[ia] = draftArr[ib]; draftArr[ib] = t;
+}
+
+// 「1日1回」と「複数回OK」が入り混じらないよう、設定画面では常にグループごとに分けて表示し、
+// 並び替えもグループ内でしかできないようにする（グループをまたぐ並び替えは意味を持たないため）。
+function renderActionsSettings(){
+  var list = document.getElementById("actionsSettingsList");
+  list.innerHTML = "";
+  var onceGroup = actionsDraft.filter(function(a){ return a.once; });
+  var repeatGroup = actionsDraft.filter(function(a){ return !a.once; });
+
+  var onceLabel = document.createElement("div");
+  onceLabel.className = "settingsGroupLabel"; onceLabel.textContent = "一日一回";
+  list.appendChild(onceLabel);
+  onceGroup.forEach(function(a, idx){ list.appendChild(buildActionSettingsRow(a, onceGroup, idx)); });
+
+  var repeatLabel = document.createElement("div");
+  repeatLabel.className = "settingsGroupLabel"; repeatLabel.textContent = "複数回OK";
+  list.appendChild(repeatLabel);
+  repeatGroup.forEach(function(a, idx){ list.appendChild(buildActionSettingsRow(a, repeatGroup, idx)); });
+
+  updateActionsValidation();
+}
+
+function buildActionSettingsRow(a, groupArr, idxInGroup){
+  var row = document.createElement("div");
+  row.className = "settingsRow";
+
+  var line1 = document.createElement("div");
+  line1.className = "settingsRowLine1";
+  var emojiInput = document.createElement("input");
+  emojiInput.type = "text"; emojiInput.className = "settingsEmojiInput"; emojiInput.maxLength = 4;
+  emojiInput.value = a.emoji;
+  emojiInput.oninput = function(){ a.emoji = emojiInput.value; };
+  var labelInput = document.createElement("input");
+  labelInput.type = "text"; labelInput.className = "settingsTextInput"; labelInput.placeholder = "やることの内容";
+  labelInput.value = a.label;
+  labelInput.oninput = function(){ a.label = labelInput.value; updateActionsValidation(); };
+  var delBtn = document.createElement("button");
+  delBtn.className = "settingsDeleteBtn"; delBtn.textContent = "🗑"; delBtn.title = "削除";
+  delBtn.onclick = function(){
+    var i = actionsDraft.indexOf(a);
+    if (i>=0) actionsDraft.splice(i,1);
+    renderActionsSettings();
+  };
+  line1.appendChild(emojiInput); line1.appendChild(labelInput); line1.appendChild(delBtn);
+
+  var line2 = document.createElement("div");
+  line2.className = "settingsRowLine2";
+  var catSelect = document.createElement("select");
+  catSelect.className = "settingsSelect";
+  CATEGORY_ORDER.forEach(function(cat){
+    var opt = document.createElement("option");
+    opt.value = cat; opt.textContent = cat;
+    if (a.category === cat) opt.selected = true;
+    catSelect.appendChild(opt);
+  });
+  catSelect.onchange = function(){ a.category = catSelect.value; };
+  var ptInput = document.createElement("input");
+  ptInput.type = "number"; ptInput.min = "1"; ptInput.step = "1"; ptInput.className = "settingsNumInput";
+  ptInput.value = a.pt;
+  ptInput.oninput = function(){ a.pt = parseInt(ptInput.value,10) || 1; };
+  var ptLabel = document.createElement("label");
+  ptLabel.className = "settingsToggleLabel";
+  ptLabel.appendChild(document.createTextNode("点数"));
+  ptLabel.appendChild(ptInput);
+  var onceLabel = document.createElement("label");
+  onceLabel.className = "settingsToggleLabel";
+  var onceCheck = document.createElement("input");
+  onceCheck.type = "checkbox"; onceCheck.checked = !!a.once;
+  // トグルを変えるとグループが変わるので、その場で全体を再描画してグループ移動を反映する
+  onceCheck.onchange = function(){ a.once = onceCheck.checked; renderActionsSettings(); };
+  onceLabel.appendChild(onceCheck);
+  onceLabel.appendChild(document.createTextNode("1日1回"));
+  var upBtn = document.createElement("button");
+  upBtn.className = "settingsReorderBtn"; upBtn.textContent = "▲"; upBtn.disabled = (idxInGroup===0);
+  upBtn.onclick = function(){
+    if (idxInGroup>0){ swapDraftItems(actionsDraft, a, groupArr[idxInGroup-1]); renderActionsSettings(); }
+  };
+  var downBtn = document.createElement("button");
+  downBtn.className = "settingsReorderBtn"; downBtn.textContent = "▼"; downBtn.disabled = (idxInGroup===groupArr.length-1);
+  downBtn.onclick = function(){
+    if (idxInGroup<groupArr.length-1){ swapDraftItems(actionsDraft, a, groupArr[idxInGroup+1]); renderActionsSettings(); }
+  };
+  line2.appendChild(onceLabel); line2.appendChild(catSelect); line2.appendChild(ptLabel);
+  line2.appendChild(upBtn); line2.appendChild(downBtn);
+
+  row.appendChild(line1); row.appendChild(line2);
+  return row;
+}
+
+function addActionDraft(){
+  actionsDraft.push({ id:"custom"+Date.now().toString(36), emoji:"⭐", label:"", pt:1, once:false, category:CATEGORY_ORDER[0] });
+  renderActionsSettings();
+}
+
+function updateActionsValidation(){
+  var panel = document.getElementById("actionsValidation");
+  var saveBtn = document.getElementById("saveActionsBtn");
+  var hasBlank = actionsDraft.some(function(a){ return !(a.label||"").trim(); });
+  var hasAny = actionsDraft.length > 0;
+  if (!hasAny){
+    panel.textContent = "やることが1件もありません"; panel.className = "settingsValidation err"; saveBtn.disabled = true;
+  } else if (hasBlank){
+    panel.textContent = "内容が空のやることがあります"; panel.className = "settingsValidation err"; saveBtn.disabled = true;
+  } else {
+    panel.textContent = actionsDraft.length+"件（OK）"; panel.className = "settingsValidation ok"; saveBtn.disabled = false;
+  }
+}
+
+function saveActionsDraft(){
+  updateActionsValidation();
+  if (document.getElementById("saveActionsBtn").disabled) return;
+  // 保存時に「一日一回→複数回OK」の順で並べ直し、グループがバラバラにならないようにする
+  var onceGroup = actionsDraft.filter(function(a){ return a.once; });
+  var repeatGroup = actionsDraft.filter(function(a){ return !a.once; });
+  state.actions = cloneDefault(onceGroup.concat(repeatGroup));
+  save(); render();
+  flashButtonLabel(document.getElementById("saveActionsBtn"), "保存しました");
+}
+
+function renderRewardsSettings(){
+  var list = document.getElementById("rewardsSettingsList");
+  list.innerHTML = "";
+  var todayGroup = rewardsDraft.filter(function(r){ return !r.carryover; });
+  var carryGroupAll = rewardsDraft.filter(function(r){ return r.carryover; });
+  var atari = carryGroupAll.filter(function(r){ return r.id === "atari"; })[0];
+  var carryGroup = carryGroupAll.filter(function(r){ return r.id !== "atari"; });
+
+  var todayLabel = document.createElement("div");
+  todayLabel.className = "settingsGroupLabel"; todayLabel.textContent = "当日限り";
+  list.appendChild(todayLabel);
+  todayGroup.forEach(function(r, idx){ list.appendChild(buildRewardSettingsRow(r, todayGroup, idx)); });
+
+  var carryLabel = document.createElement("div");
+  carryLabel.className = "settingsGroupLabel"; carryLabel.textContent = "持ち越し可";
+  list.appendChild(carryLabel);
+  carryGroup.forEach(function(r, idx){ list.appendChild(buildRewardSettingsRow(r, carryGroup, idx)); });
+  // 当たりは持ち越し可グループの一番下に固定し、並び替え・削除・持ち越しフラグの変更はできない
+  if (atari) list.appendChild(buildRewardSettingsRow(atari, [atari], 0));
+
+  updateRewardsValidation();
+}
+
+function buildRewardSettingsRow(r, groupArr, idxInGroup){
+  var row = document.createElement("div");
+  row.className = "settingsRow";
+  var isAtari = (r.id === "atari");
+  // 盤面にまだ割り当てられている報酬は、先に「盤面編集」でマスを他へ移してからでないと削除できない
+  // （state.board = 直前に保存された盤面を見る。boardDraftの未保存の変更はここでは見ない）。
+  var usedOnBoard = countOnBoard(r.id, state.board) > 0;
+  var canDelete = !isAtari && !usedOnBoard;
+
+  var line1 = document.createElement("div");
+  line1.className = "settingsRowLine1";
+  var emojiInput = document.createElement("input");
+  emojiInput.type = "text"; emojiInput.className = "settingsEmojiInput"; emojiInput.maxLength = 4;
+  emojiInput.value = r.emoji;
+  emojiInput.oninput = function(){ r.emoji = emojiInput.value; };
+  var nameInput = document.createElement("input");
+  nameInput.type = "text"; nameInput.className = "settingsTextInput"; nameInput.placeholder = "報酬の名前";
+  nameInput.value = r.name;
+  nameInput.oninput = function(){ r.name = nameInput.value; updateRewardsValidation(); };
+  var delBtn = document.createElement("button");
+  delBtn.className = "settingsDeleteBtn"; delBtn.textContent = "🗑";
+  delBtn.title = isAtari ? "当たりは削除できません" : (usedOnBoard ? "先に盤面編集でこのマスを他の報酬に変更してください" : "削除");
+  delBtn.disabled = !canDelete;
+  delBtn.onclick = function(){
+    if (!canDelete) return;
+    var i = rewardsDraft.indexOf(r);
+    if (i>=0) rewardsDraft.splice(i,1);
+    renderRewardsSettings();
+  };
+  line1.appendChild(emojiInput); line1.appendChild(nameInput); line1.appendChild(delBtn);
+
+  var line2 = document.createElement("div");
+  line2.className = "settingsRowLine2";
+  var carryLabel = document.createElement("label");
+  carryLabel.className = "settingsToggleLabel";
+  var carryCheck = document.createElement("input");
+  carryCheck.type = "checkbox"; carryCheck.checked = !!r.carryover;
+  carryCheck.disabled = isAtari; // 当たりは常に持ち越し可グループの固定枠なので変更させない
+  // トグルを変えるとグループが変わるので、その場で全体を再描画してグループ移動を反映する
+  carryCheck.onchange = function(){ if (isAtari) return; r.carryover = carryCheck.checked; renderRewardsSettings(); };
+  carryLabel.appendChild(carryCheck);
+  carryLabel.appendChild(document.createTextNode("持ち越し可"));
+
+  var countLabel = document.createElement("span");
+  countLabel.className = "settingsCountLabel";
+  countLabel.textContent = isAtari ? "盤面：7-7に固定" : "盤面："+countOnBoard(r.id, state.board)+"/64（盤面編集で変更）";
+
+  var upBtn = document.createElement("button");
+  upBtn.className = "settingsReorderBtn"; upBtn.textContent = "▲"; upBtn.disabled = isAtari || (idxInGroup===0);
+  upBtn.onclick = function(){
+    if (isAtari) return;
+    if (idxInGroup>0){ swapDraftItems(rewardsDraft, r, groupArr[idxInGroup-1]); renderRewardsSettings(); }
+  };
+  var downBtn = document.createElement("button");
+  downBtn.className = "settingsReorderBtn"; downBtn.textContent = "▼"; downBtn.disabled = isAtari || (idxInGroup===groupArr.length-1);
+  downBtn.onclick = function(){
+    if (isAtari) return;
+    if (idxInGroup<groupArr.length-1){ swapDraftItems(rewardsDraft, r, groupArr[idxInGroup+1]); renderRewardsSettings(); }
+  };
+
+  line2.appendChild(carryLabel); line2.appendChild(countLabel);
+  line2.appendChild(upBtn); line2.appendChild(downBtn);
+
+  row.appendChild(line1); row.appendChild(line2);
+  return row;
+}
+
+function addRewardDraft(){
+  rewardsDraft.push({ id:"reward"+Date.now().toString(36), emoji:"⭐", name:"", carryover:false });
+  renderRewardsSettings();
+}
+
+// 名前が空でないか・当たりが残っているかを検証する（盤面のマス数はここでは検証しない。
+// 新規追加した報酬は保存後に「盤面編集」で好きなマスへ割り当てるまで0マスのままでよい）。
+function getRewardsDraftValidation(){
+  if (rewardsDraft.some(function(r){ return !(r.name||"").trim(); })){
+    return { ok:false, message:"名前が空の報酬があります" };
+  }
+  if (!rewardsDraft.some(function(r){ return r.id === "atari"; })){
+    return { ok:false, message:"当たりが必要です" };
+  }
+  return { ok:true, message:rewardsDraft.length+"件（OK）" };
+}
+
+function updateRewardsValidation(){
+  var panel = document.getElementById("rewardsValidation");
+  var saveBtn = document.getElementById("saveRewardsBtn");
+  var result = getRewardsDraftValidation();
+  panel.textContent = result.message;
+  panel.className = "settingsValidation " + (result.ok ? "ok" : "err");
+  saveBtn.disabled = !result.ok;
+}
+
+function saveRewardsDraft(){
+  updateRewardsValidation();
+  if (document.getElementById("saveRewardsBtn").disabled) return;
+  // 二重防御：ここでも当たりの存在を確認してからコミットする
+  if (!rewardsDraft.some(function(r){ return r.id === "atari"; })) return;
+  // 保存時に「当日限り→持ち越し可→当たり」の順で並べ直し、グループがバラバラにならないようにする
+  var todayGroup = rewardsDraft.filter(function(r){ return !r.carryover; });
+  var carryGroup = rewardsDraft.filter(function(r){ return r.carryover && r.id !== "atari"; });
+  var atariEntry = rewardsDraft.filter(function(r){ return r.id === "atari"; })[0];
+  var ordered = todayGroup.concat(carryGroup).concat(atariEntry ? [atariEntry] : []);
+  var snapshot = cloneDefault(ordered);
+  state.rewards = snapshot;
+  reindexRewards();
+  // 削除された報酬のstockを掃除し、新規報酬のstockを0で初期化する（盤面は触らない）
+  var validIds = {};
+  snapshot.forEach(function(r){ validIds[r.id] = true; });
+  Object.keys(state.stock).forEach(function(k){ if (!validIds[k]) delete state.stock[k]; });
+  snapshot.forEach(function(r){ if (!(r.id in state.stock)) state.stock[r.id] = 0; });
+  save(); render();
+  renderBoardTable();  // 報酬名・絵文字の変更をメイン画面の盤面表示にも反映する
+  renderBoardEditor(); // 名前・絵文字の変更を盤面編集側の表示にも反映する
+  flashButtonLabel(document.getElementById("saveRewardsBtn"), "保存しました");
+}
+
+// 盤面編集：マス(a,b)をタップすると対称マス(b,a)もまとめて選んだ報酬に変更する。
+// 対角(a===b)は1マスだけ、非対角は上三角(a<b)側だけをタップ可能にし、下三角は結果を表示するだけにする
+// （線対称なので下三角を別途編集できても意味がないため）。
+var boardPickTarget = null; // {a,b} 1始まり
+
+function renderBoardEditor(){
+  var tbl = document.getElementById("boardEditTable");
+  if (!tbl) return;
+  tbl.innerHTML = "";
+  var headRow = document.createElement("tr");
+  headRow.appendChild(document.createElement("th"));
+  for (var b=1; b<=8; b++){
+    var th = document.createElement("th");
+    th.textContent = b;
+    headRow.appendChild(th);
+  }
+  tbl.appendChild(headRow);
+  for (var a=1; a<=8; a++){
+    var row = document.createElement("tr");
+    var rowTh = document.createElement("th");
+    rowTh.textContent = a;
+    row.appendChild(rowTh);
+    for (var b2=1; b2<=8; b2++){
+      var rk = boardDraft[a-1][b2-1];
+      var rw = rewardsIndex[rk];
+      var td = document.createElement("td");
+      if (isRare(rk, boardDraft)) td.className = "rare";
+      // 7-7は当たり専用マスとして固定し、編集不可にする（当たりは他のマスへ移せない・他の報酬も7-7には入れない）
+      var isAtariCell = (a === 7 && b2 === 7);
+      var editable = (a <= b2) && !isAtariCell;
+      if (editable){
+        td.className = (td.className ? td.className+" " : "") + "boardEditCell";
+        td.onclick = (function(aa, bb){ return function(){ openBoardCellPick(aa, bb); }; })(a, b2);
+      }
+      var emojiSpan = document.createElement("span");
+      emojiSpan.className = "bEmoji"; emojiSpan.textContent = rw ? rw.emoji : "?";
+      var nameSpan = document.createElement("span");
+      nameSpan.className = "bName"; nameSpan.textContent = rw ? rw.name : rk;
+      td.appendChild(emojiSpan); td.appendChild(nameSpan);
+      row.appendChild(td);
+    }
+    tbl.appendChild(row);
+  }
+  updateBoardEditorCounts();
+}
+
+function updateBoardEditorCounts(){
+  var panel = document.getElementById("boardEditorCounts");
+  if (!panel) return;
+  panel.innerHTML = "";
+  state.rewards.forEach(function(r){
+    var row = document.createElement("div");
+    row.className = "boardCountRow";
+    var left = document.createElement("span");
+    left.textContent = r.emoji + " " + r.name;
+    var right = document.createElement("span");
+    right.textContent = countOnBoard(r.id, boardDraft) + "/64";
+    row.appendChild(left); row.appendChild(right);
+    panel.appendChild(row);
+  });
+}
+
+function openBoardCellPick(a, b){
+  if (a === 7 && b === 7) return; // 当たり専用マスは編集不可
+  boardPickTarget = { a:a, b:b };
+  document.getElementById("boardCellPickTitle").textContent = a+" と "+b+" のマス";
+  var list = document.getElementById("boardCellPickList");
+  list.innerHTML = "";
+  // 当たりは7-7専用なので、他のマスの選択肢には出さない
+  state.rewards.filter(function(r){ return r.id !== "atari"; }).forEach(function(r){
+    var btn = document.createElement("button");
+    btn.className = "atariPickBtn";
+    var emojiSpan = document.createElement("span");
+    emojiSpan.className = "atariPickEmoji"; emojiSpan.textContent = r.emoji;
+    var nameSpan = document.createElement("span");
+    nameSpan.className = "atariPickName"; nameSpan.textContent = r.name;
+    btn.appendChild(emojiSpan); btn.appendChild(nameSpan);
+    btn.onclick = function(){ pickBoardCellReward(r.id); };
+    list.appendChild(btn);
+  });
+  document.getElementById("boardCellPickModal").classList.add("show");
+}
+
+function pickBoardCellReward(rk){
+  if (!boardPickTarget) return;
+  var a = boardPickTarget.a, b = boardPickTarget.b;
+  // 二重防御：7-7（当たり専用マス）や、当たりを他のマスへ割り当てる操作は無視する
+  if ((a === 7 && b === 7) || rk === "atari"){ boardPickTarget = null; closeBoardCellPick(); return; }
+  boardDraft[a-1][b-1] = rk;
+  boardDraft[b-1][a-1] = rk;
+  boardPickTarget = null;
+  closeBoardCellPick();
+  renderBoardEditor();
+}
+
+function closeBoardCellPick(){
+  document.getElementById("boardCellPickModal").classList.remove("show");
+}
+
+function saveBoardDraft(){
+  state.board = cloneDefault(boardDraft);
+  save(); render();
+  renderBoardTable();     // メイン画面の盤面表示に反映する（render()はboardTableを触らないため必須）
+  renderRewardsSettings(); // 削除ボタンのガード状態・盤面カウント表示を最新化
+  flashButtonLabel(document.getElementById("saveBoardBtn"), "保存しました");
+}
+
 // ───────── 描画 ─────────
-// 盤面表（BOARDから自動生成。盤面を変えれば表も追随する）
-var RARE_KEYS = ["atari","onsen","self"];
+// 盤面表（state.boardから自動生成。盤面を変えれば表も追随する）
 function renderBoardTable(){
   var tbl = document.getElementById("boardTable");
   if (!tbl) return;
-  var html = "<tr><th></th>";
-  for (var b=1; b<=8; b++) html += "<th>"+b+"</th>";
-  html += "</tr>";
-  for (var a=1; a<=8; a++){
-    html += "<tr><th>"+a+"</th>";
-    for (var b2=1; b2<=8; b2++){
-      var rk = BOARD[a-1][b2-1];
-      var cls = RARE_KEYS.indexOf(rk)>=0 ? ' class="rare"' : "";
-      html += "<td"+cls+">"+
-        '<span class="bEmoji">'+REWARDS[rk].emoji+'</span>'+
-        '<span class="bName">'+REWARDS[rk].short+'</span>'+
-        "</td>";
-    }
-    html += "</tr>";
+  tbl.innerHTML = "";
+  var headRow = document.createElement("tr");
+  headRow.appendChild(document.createElement("th"));
+  for (var b=1; b<=8; b++){
+    var th = document.createElement("th");
+    th.textContent = b;
+    headRow.appendChild(th);
   }
-  tbl.innerHTML = html;
+  tbl.appendChild(headRow);
+  for (var a=1; a<=8; a++){
+    var row = document.createElement("tr");
+    var rowTh = document.createElement("th");
+    rowTh.textContent = a;
+    row.appendChild(rowTh);
+    for (var b2=1; b2<=8; b2++){
+      var rk = state.board[a-1][b2-1];
+      var td = document.createElement("td");
+      if (isRare(rk)) td.className = "rare";
+      var emojiSpan = document.createElement("span");
+      emojiSpan.className = "bEmoji";
+      emojiSpan.textContent = rewardsIndex[rk].emoji;
+      var nameSpan = document.createElement("span");
+      nameSpan.className = "bName";
+      nameSpan.textContent = rewardsIndex[rk].name;
+      td.appendChild(emojiSpan);
+      td.appendChild(nameSpan);
+      row.appendChild(td);
+    }
+    tbl.appendChild(row);
+  }
 }
 
 function render(){
@@ -790,24 +1327,31 @@ function render(){
     btn.className = "actionBtn" + (usedToday ? " usedOnce" : "");
     btn.disabled = !!usedToday;
 
+    var emojiSpan = document.createElement("span");
+    emojiSpan.className = "actionEmoji"; emojiSpan.textContent = a.emoji;
+    var labelSpan = document.createElement("span");
+    labelSpan.className = "actionLabel"; labelSpan.textContent = a.label;
+    var ptSpan = document.createElement("span");
+    ptSpan.className = "actionPt"; ptSpan.textContent = "+"+a.pt;
+    btn.appendChild(emojiSpan); btn.appendChild(labelSpan);
+
     // 複数回押せるボタンは、当日の押下回数をドットで表示
-    var dots = "";
     if (!a.once){
       var n = (state.daily[td] && state.daily[td][a.id]) || 0;
       if (n > 0){
-        var d = "";
+        var dotRow = document.createElement("span");
+        dotRow.className = "dotRow";
         for (var i=0; i<n; i++){
           // 5個ごとに区切りの間隔を空ける（正の字と同じ発想）
-          d += '<span class="dot'+((i>0 && i%5===0) ? " dotGap" : "")+'"></span>';
+          var dot = document.createElement("span");
+          dot.className = "dot" + ((i>0 && i%5===0) ? " dotGap" : "");
+          dotRow.appendChild(dot);
         }
-        dots = '<span class="dotRow">'+d+'</span>';
+        labelSpan.appendChild(dotRow);
       }
     }
 
-    btn.innerHTML =
-      '<span class="actionEmoji">'+a.emoji+'</span>'+
-      '<span class="actionLabel">'+a.label+dots+'</span>'+
-      '<span class="actionPt">+'+a.pt+'</span>';
+    btn.appendChild(ptSpan);
     btn.onclick = function(){ addPoint(a); };
     return btn;
   }
@@ -820,11 +1364,11 @@ function render(){
   onceBox.appendChild(onceLabel);
   var onceInner = document.createElement("div");
   onceInner.className = "todayBoxInner";
-  ACTIONS.filter(function(a){ return a.once; }).forEach(function(a){ onceInner.appendChild(buildActionBtn(a)); });
+  state.actions.filter(function(a){ return a.once; }).forEach(function(a){ onceInner.appendChild(buildActionBtn(a)); });
   onceBox.appendChild(onceInner);
   ag.appendChild(onceBox);
 
-  ACTIONS.filter(function(a){ return !a.once; }).forEach(function(a){ ag.appendChild(buildActionBtn(a)); });
+  state.actions.filter(function(a){ return !a.once; }).forEach(function(a){ ag.appendChild(buildActionBtn(a)); });
 
   // ロールボタン
   var rb = document.getElementById("rollBtn");
@@ -842,13 +1386,21 @@ function render(){
 
   function buildRow(rk){
     var n = state.stock[rk]||0, has = n>0;
+    var r = rewardsIndex[rk];
     var row = document.createElement("div");
     row.className = "stockRow"; row.style.opacity = has ? 1 : .5;
-    var nameHtml = REWARDS[rk].name + (rk === "atari" ? '<span class="specialTag">70点で確定</span>' : "");
-    row.innerHTML =
-      '<span class="stockEmoji">'+REWARDS[rk].emoji+'</span>'+
-      '<span class="stockName">'+nameHtml+'</span>'+
-      '<span class="stockCount">×'+n+'</span>';
+    var emojiSpan = document.createElement("span");
+    emojiSpan.className = "stockEmoji"; emojiSpan.textContent = r.emoji;
+    var nameSpan = document.createElement("span");
+    nameSpan.className = "stockName"; nameSpan.textContent = r.name;
+    if (rk === "atari"){
+      var tag = document.createElement("span");
+      tag.className = "specialTag"; tag.textContent = ((state.earnedTotal||0) % 70) + "/70";
+      nameSpan.appendChild(tag);
+    }
+    var countSpan = document.createElement("span");
+    countSpan.className = "stockCount"; countSpan.textContent = "×"+n;
+    row.appendChild(emojiSpan); row.appendChild(nameSpan); row.appendChild(countSpan);
     var ub = document.createElement("button");
     ub.className = "useBtn";
     ub.textContent = (rk === "atari") ? "交換する" : "使う";
@@ -858,8 +1410,8 @@ function render(){
     return row;
   }
 
-  var todayGroupKeys = REWARD_ORDER.filter(function(rk){ return CARRYOVER_OK.indexOf(rk)===-1; });
-  var carryGroupKeys = REWARD_ORDER.filter(function(rk){ return CARRYOVER_OK.indexOf(rk)!==-1; });
+  var todayGroupKeys = state.rewards.filter(function(r){ return !r.carryover; }).map(function(r){ return r.id; });
+  var carryGroupKeys = state.rewards.filter(function(r){ return r.carryover; }).map(function(r){ return r.id; });
 
   var todayBox = document.createElement("div");
   todayBox.className = "todayBox";
@@ -883,10 +1435,16 @@ function render(){
   var specialBox = document.createElement("div");
   specialBox.className = "specialBox";
   specialBox.style.opacity = mn>0 ? 1 : .55;
-  specialBox.innerHTML =
-    '<span class="stockEmoji">🎧</span>'+
-    '<span class="stockName">海野さんのセッション音声<span class="specialTag">10点ごと</span></span>'+
-    '<span class="stockCount">×'+mn+'</span>';
+  var specialEmoji = document.createElement("span");
+  specialEmoji.className = "stockEmoji"; specialEmoji.textContent = "🎧";
+  var specialName = document.createElement("span");
+  specialName.className = "stockName"; specialName.textContent = "海野さんのセッション音声";
+  var specialTag = document.createElement("span");
+  specialTag.className = "specialTag"; specialTag.textContent = ((state.earnedTotal||0) % 10) + "/10";
+  specialName.appendChild(specialTag);
+  var specialCount = document.createElement("span");
+  specialCount.className = "stockCount"; specialCount.textContent = "×"+mn;
+  specialBox.appendChild(specialEmoji); specialBox.appendChild(specialName); specialBox.appendChild(specialCount);
   var mub = document.createElement("button");
   mub.className = "useBtn"; mub.textContent = "使う"; mub.disabled = !(mn>0);
   mub.onclick = function(){ consumeMiyazaki(); };
@@ -902,15 +1460,18 @@ function render(){
     state.log.slice(0,30).forEach(function(e){
       var row = document.createElement("div");
       row.className = "logRow";
-      var right = "";
-      if (e.type==="earn") right = '<span class="logEarn">+'+e.pt+'</span>';
-      else if (e.type==="roll") right = '<span class="logRoll">'+e.pt+'</span>';
-      else if (e.type==="use") right = '<span class="logUse">使用</span>';
-      else if (e.type==="manual") right = '<span class="logRoll">'+e.pt+'</span>';
-      else if (e.type==="milestone") right = '<span class="logMilestone">🎧</span>';
-      row.innerHTML =
-        '<span class="logDate">'+(e.date?e.date.slice(5):"")+'</span>'+
-        '<span class="logDetail">'+e.detail+'</span>'+ right;
+      var dateSpan = document.createElement("span");
+      dateSpan.className = "logDate"; dateSpan.textContent = e.date ? e.date.slice(5) : "";
+      var detailSpan = document.createElement("span");
+      detailSpan.className = "logDetail"; detailSpan.textContent = e.detail;
+      row.appendChild(dateSpan); row.appendChild(detailSpan);
+      var right = null;
+      if (e.type==="earn"){ right = document.createElement("span"); right.className="logEarn"; right.textContent="+"+e.pt; }
+      else if (e.type==="roll"){ right = document.createElement("span"); right.className="logRoll"; right.textContent=e.pt; }
+      else if (e.type==="use"){ right = document.createElement("span"); right.className="logUse"; right.textContent="使用"; }
+      else if (e.type==="manual"){ right = document.createElement("span"); right.className="logRoll"; right.textContent=e.pt; }
+      else if (e.type==="milestone"){ right = document.createElement("span"); right.className="logMilestone"; right.textContent="🎧"; }
+      if (right) row.appendChild(right);
       ll.appendChild(row);
     });
   }
@@ -940,6 +1501,24 @@ document.getElementById("atariClose").onclick = function(e){ e.stopPropagation()
 document.querySelector("#atariModal .modalCard").onclick = function(e){ e.stopPropagation(); };
 document.getElementById("atariModal").onclick = function(e){
   if (e.target === document.getElementById("atariModal")) closeAtariModal();
+};
+
+document.getElementById("settingsBtn").onclick = openSettings;
+document.getElementById("settingsClose").onclick = function(e){ e.stopPropagation(); closeSettings(); };
+document.querySelector("#settingsModal .modalCard").onclick = function(e){ e.stopPropagation(); };
+document.getElementById("settingsModal").onclick = function(e){
+  if (e.target === document.getElementById("settingsModal")) closeSettings();
+};
+document.getElementById("addActionBtn").onclick = function(e){ e.stopPropagation(); addActionDraft(); };
+document.getElementById("saveActionsBtn").onclick = function(e){ e.stopPropagation(); saveActionsDraft(); };
+document.getElementById("addRewardBtn").onclick = function(e){ e.stopPropagation(); addRewardDraft(); };
+document.getElementById("saveRewardsBtn").onclick = function(e){ e.stopPropagation(); saveRewardsDraft(); };
+document.getElementById("saveBoardBtn").onclick = function(e){ e.stopPropagation(); saveBoardDraft(); };
+
+document.getElementById("boardCellPickClose").onclick = function(e){ e.stopPropagation(); closeBoardCellPick(); };
+document.querySelector("#boardCellPickModal .modalCard").onclick = function(e){ e.stopPropagation(); };
+document.getElementById("boardCellPickModal").onclick = function(e){
+  if (e.target === document.getElementById("boardCellPickModal")) closeBoardCellPick();
 };
 
 // ───────── 起動（合言葉の確認を先に済ませる） ─────────
