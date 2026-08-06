@@ -17,6 +17,11 @@
   .wrap { max-width: 480px; margin: 0 auto; padding: 20px 16px 48px; position:relative; }
   .settingsGear { position:absolute; top:20px; right:16px; background:none; border:none; font-size:20px; cursor:pointer; opacity:.55; padding:4px; }
   .settingsGear:active { opacity:.85; }
+  .reloadBtn { position:absolute; top:20px; left:16px; background:none; border:none; font-size:20px; cursor:pointer; opacity:.55; padding:4px; }
+  .reloadBtn:active { opacity:.85; }
+  .reloadBtn:disabled { opacity:.25; cursor:default; }
+  .reloadBtn.spinning { animation:reloadSpin .7s linear infinite; }
+  @keyframes reloadSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
   .authInput { width:100%; box-sizing:border-box; padding:12px 14px; font-size:16px; border:1.5px solid #ddd; border-radius:12px; margin-bottom:12px; }
   h1 { font-size: 26px; margin: 0 0 4px; text-align: center; }
   .sub { font-size: 13px; color: #888; text-align: center; margin: 0 0 18px; }
@@ -181,6 +186,7 @@
 </div>
 
 <div class="wrap">
+  <button class="reloadBtn" id="reloadBtn" aria-label="更新" title="更新">🔄</button>
   <button class="settingsGear" id="settingsBtn" aria-label="設定" title="設定">⚙️</button>
   <h1>🎲 ゲーミフィケーション</h1>
   <p class="sub">行動を貯めて、サイコロで報酬を解禁する</p>
@@ -1510,6 +1516,7 @@ document.getElementById("atariModal").onclick = function(e){
 };
 
 document.getElementById("settingsBtn").onclick = openSettings;
+document.getElementById("reloadBtn").onclick = manualReload;
 document.getElementById("settingsClose").onclick = function(e){ e.stopPropagation(); closeSettings(); };
 document.querySelector("#settingsModal .modalCard").onclick = function(e){ e.stopPropagation(); };
 document.getElementById("settingsModal").onclick = function(e){
@@ -1550,6 +1557,25 @@ function startApp(){
     if (document.visibilityState === "visible"){
       if (settlePastDays()) render();
     }
+  });
+}
+
+// 左上の🔄ボタン：他端末で更新した内容などを、アプリを閉じ直さずに手動で取りに行くための同期契機
+var reloading = false;
+function manualReload(){
+  if (reloading) return;
+  reloading = true;
+  var btn = document.getElementById("reloadBtn");
+  btn.disabled = true;
+  btn.classList.add("spinning");
+  load().then(function(){
+    settlePastDays();
+    render();
+    renderBoardTable();
+  }).then(function(){
+    reloading = false;
+    btn.disabled = false;
+    btn.classList.remove("spinning");
   });
 }
 
