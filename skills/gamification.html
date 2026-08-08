@@ -40,6 +40,8 @@
 
   .section { margin-top:22px; }
   .secTitle { font-size:13px; font-weight:700; color:#666; margin-bottom:10px; padding-left:2px; }
+  .secTitleRow { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .secTitleRow .secTitle { margin-bottom:10px; }
 
   .actionGrid { display:flex; flex-direction:column; gap:8px; }
   .actionBtn { position:relative; display:flex; align-items:center; gap:10px; background:#fff; border:1.5px solid #e2e2ea; border-radius:12px; padding:13px 14px; min-height:60px; cursor:pointer; font-size:14px; text-align:left; color:#333; width:100%; }
@@ -61,6 +63,11 @@
   .actionEmoji { font-size:22px; flex-shrink:0; width:26px; text-align:center; }
   .actionLabel { flex:1; }
   .actionPt { font-weight:700; color:#5a5a8c; font-size:16px; min-width:30px; text-align:right; }
+  .yesterdayBtn { flex-shrink:0; margin-bottom:10px; background:#fff; border:1.5px solid #ddd; color:#888; border-radius:8px; padding:4px 10px; font-size:11.5px; font-weight:700; cursor:pointer; }
+  .yesterdayBtn:active { background:#f7f7f8; }
+  .yesterdayStepVal { min-width:22px; text-align:center; font-weight:700; font-size:14px; color:#3a3a5c; }
+  .yesterdayLockedTag { font-size:10px; color:#aaa; margin-left:6px; }
+  .yesterdayFloorNote { font-size:11px; color:#aaa; }
 
   .diceRow { display:flex; align-items:center; gap:12px; margin:6px 0 14px; height:76px; }
   .dice { width:72px; height:72px; border-radius:16px; background:#fff; border:2px solid #3a3a5c; display:flex; align-items:center; justify-content:center; font-size:38px; font-weight:700; color:#3a3a5c; box-shadow:0 3px 8px rgba(0,0,0,0.12); flex-shrink:0; }
@@ -79,6 +86,7 @@
   .modalOverlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:100; align-items:center; justify-content:center; padding:20px; }
   .modalOverlay.show { display:flex; }
   .modalCard { background:#fff; border-radius:18px; padding:20px; width:100%; max-width:340px; box-shadow:0 10px 40px rgba(0,0,0,0.25); }
+  #yesterdayModal .modalCard { max-height:85vh; overflow-y:auto; }
   .modalTitle { font-size:16px; font-weight:700; margin-bottom:4px; }
   .modalSub { font-size:12px; color:#888; margin-bottom:14px; }
   .diceLabel { font-size:11px; color:#aaa; margin:4px 0 6px; }
@@ -200,7 +208,10 @@
   </div>
 
   <div class="section">
-    <div class="secTitle">点数をゲット</div>
+    <div class="secTitleRow">
+      <div class="secTitle">点数をゲット</div>
+      <button class="yesterdayBtn" id="yesterdayBtn">📅 前日分</button>
+    </div>
     <div class="actionGrid" id="actionGrid"></div>
   </div>
 
@@ -227,6 +238,19 @@
       <div class="modalBtnRow">
         <button class="modalClose" id="manualClose">閉じる</button>
         <button class="modalConfirm" id="manualConfirm" disabled>この報酬を追加</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modalOverlay" id="yesterdayModal">
+    <div class="modalCard">
+      <div class="modalTitle">前日分を記録する</div>
+      <div class="modalSub" id="yesterdaySub"></div>
+      <div class="settingsList" id="yesterdayChecklist"></div>
+      <div class="manualResult" id="yesterdaySummary">追加なし</div>
+      <div class="modalBtnRow">
+        <button class="modalClose" id="yesterdayClose">閉じる</button>
+        <button class="modalConfirm" id="yesterdayConfirm" disabled>この内容で追加</button>
       </div>
     </div>
   </div>
@@ -887,6 +911,194 @@ function doReset(){
   showFlash("リセットしました");
 }
 
+// ───────── 前日分の追記（記録し忘れの埋め合わせ・前日のみ対象） ─────────
+// state.daily[todayStr()]や当日の描画には一切触れない。前日分について
+// 「まだ記録されていない分」だけを追加する（記録済みのものを減らすことはできない＝罰則なし設計）。
+var yesterdayOriginal = {};
+var yesterdayDraft = {};
+
+function openYesterdayModal(){
+  settlePastDays(); // 他のエントリポイントと同じく、開く前に念のため日跨ぎを確認しておく
+  var rec = state.daily[yesterdayStr()] || {};
+  yesterdayOriginal = cloneDefault(rec);
+  yesterdayDraft = cloneDefault(rec);
+  document.getElementById("yesterdaySub").textContent =
+    "対象日：" + yesterdayStr() + "（昨日）。すでに記録済みの項目は減らせません。";
+  renderYesterdayChecklist();
+  document.getElementById("yesterdayModal").classList.add("show");
+  // 一覧が長くスクロールが必要になるため、開いている間は背景側のスクロールを止めて
+  // スクロール操作がモーダルカードの中だけに効くようにする
+  document.body.style.overflow = "hidden";
+}
+
+function closeYesterdayModal(){
+  document.getElementById("yesterdayModal").classList.remove("show");
+  document.body.style.overflow = "";
+}
+
+function clearChildren(el){
+  while (el.firstChild){ el.removeChild(el.firstChild); }
+}
+
+function renderYesterdayChecklist(){
+  var list = document.getElementById("yesterdayChecklist");
+  clearChildren(list);
+
+  function buildRow(a){
+    var row = document.createElement("div");
+    row.className = "settingsRow";
+
+    var line1 = document.createElement("div");
+    line1.className = "settingsRowLine1";
+    var emojiSpan = document.createElement("span");
+    emojiSpan.textContent = a.emoji;
+    var labelSpan = document.createElement("span");
+    labelSpan.style.flex = "1";
+    labelSpan.textContent = a.label;
+    line1.appendChild(emojiSpan); line1.appendChild(labelSpan);
+
+    var line2 = document.createElement("div");
+    line2.className = "settingsRowLine2";
+
+    if (a.once){
+      var already = !!yesterdayOriginal[a.id];
+      var checkLabel = document.createElement("label");
+      checkLabel.className = "settingsToggleLabel";
+      var check = document.createElement("input");
+      check.type = "checkbox";
+      check.checked = !!yesterdayDraft[a.id];
+      check.disabled = already;
+      check.onchange = function(){ toggleYesterdayOnce(a.id); };
+      checkLabel.appendChild(check);
+      checkLabel.appendChild(document.createTextNode(already ? "記録済み" : "追加する"));
+      line2.appendChild(checkLabel);
+      if (already){
+        var tag = document.createElement("span");
+        tag.className = "yesterdayLockedTag";
+        tag.textContent = "変更不可";
+        line2.appendChild(tag);
+      }
+    } else {
+      var floor = yesterdayOriginal[a.id] || 0;
+      var current = yesterdayDraft[a.id] || 0;
+      var floorNote = document.createElement("span");
+      floorNote.className = "yesterdayFloorNote";
+      floorNote.textContent = "記録済み: " + floor + "回";
+      var minusBtn = document.createElement("button");
+      minusBtn.className = "settingsReorderBtn";
+      minusBtn.textContent = "－";
+      minusBtn.disabled = (current <= floor);
+      minusBtn.onclick = function(){ stepYesterdayRepeat(a.id, -1); };
+      var valSpan = document.createElement("span");
+      valSpan.className = "yesterdayStepVal";
+      valSpan.textContent = current;
+      var plusBtn = document.createElement("button");
+      plusBtn.className = "settingsReorderBtn";
+      plusBtn.textContent = "＋";
+      plusBtn.onclick = function(){ stepYesterdayRepeat(a.id, 1); };
+      line2.appendChild(floorNote);
+      line2.appendChild(minusBtn);
+      line2.appendChild(valSpan);
+      line2.appendChild(plusBtn);
+    }
+
+    row.appendChild(line1); row.appendChild(line2);
+    return row;
+  }
+
+  state.actions.filter(function(a){ return a.once; }).forEach(function(a){ list.appendChild(buildRow(a)); });
+  state.actions.filter(function(a){ return !a.once; }).forEach(function(a){ list.appendChild(buildRow(a)); });
+
+  updateYesterdaySummary();
+}
+
+function toggleYesterdayOnce(id){
+  yesterdayDraft[id] = !yesterdayDraft[id];
+  renderYesterdayChecklist();
+}
+
+function stepYesterdayRepeat(id, delta){
+  var floor = yesterdayOriginal[id] || 0;
+  var next = (yesterdayDraft[id] || 0) + delta;
+  if (next < floor) next = floor; // 記録済みの数より下げることはできない
+  yesterdayDraft[id] = next;
+  renderYesterdayChecklist();
+}
+
+function computeYesterdayAdded(){
+  var total = 0;
+  state.actions.forEach(function(a){
+    if (a.once){
+      if (yesterdayDraft[a.id] && !yesterdayOriginal[a.id]) total += a.pt;
+    } else {
+      var delta = (yesterdayDraft[a.id]||0) - (yesterdayOriginal[a.id]||0);
+      if (delta > 0) total += delta * a.pt;
+    }
+  });
+  return total;
+}
+
+function updateYesterdaySummary(){
+  var totalAdded = computeYesterdayAdded();
+  document.getElementById("yesterdaySummary").textContent = totalAdded > 0 ? ("追加：+"+totalAdded+"点") : "追加なし";
+  document.getElementById("yesterdayConfirm").disabled = (totalAdded <= 0);
+}
+
+function confirmYesterdayLog(){
+  var yd = yesterdayStr();
+  // draftとの差分は、開いた時点のスナップショットではなく今のstate.dailyと比べて計算する
+  // （このアプリはシングルタブ前提で実質同じ値になるが、念のための堅牢化）
+  var rec = state.daily[yd] || (state.daily[yd] = {});
+  var totalAdded = 0;
+
+  state.actions.forEach(function(a){
+    if (a.once){
+      if (yesterdayDraft[a.id] && !rec[a.id]){
+        rec[a.id] = true;
+        totalAdded += a.pt;
+        state.log.unshift({ date:yd, type:"earn", detail:a.label+"（前日分）", pt:a.pt });
+      }
+    } else {
+      var before = rec[a.id] || 0;
+      var draftVal = yesterdayDraft[a.id] || 0;
+      var delta = draftVal - before;
+      if (delta > 0){
+        rec[a.id] = draftVal;
+        totalAdded += delta * a.pt;
+        state.log.unshift({ date:yd, type:"earn", detail:a.label+"（前日分"+(delta>1 ? " ×"+delta : "")+"）", pt:a.pt*delta });
+      }
+    }
+  });
+
+  if (totalAdded <= 0) return; // 確定ボタンはdisabledのはずだが、念のための二重防御
+
+  state.points += totalAdded;
+  // 累積獲得点をまとめて進める（floor演算はどう分割しても合計が変わらないため、まとめて1回でよい）
+  var before = state.earnedTotal || 0;
+  var after = before + totalAdded;
+  state.earnedTotal = after;
+  var unlocked = Math.floor(after/10) - Math.floor(before/10);
+  if (unlocked > 0){
+    state.miyazaki = (state.miyazaki||0) + unlocked;
+    state.log.unshift({ date:todayStr(), type:"milestone", detail:"🎧 海野さんのセッション音声 解放（累積"+after+"点）", pt:0 });
+  }
+  var unlockedAtari = Math.floor(after/70) - Math.floor(before/70);
+  if (unlockedAtari > 0){
+    state.stock.atari = (state.stock.atari||0) + unlockedAtari;
+    state.log.unshift({ date:todayStr(), type:"milestone", detail:"㊗️ 当たり 確定解放（累積"+after+"点）", pt:0 });
+  }
+  state.log = state.log.slice(0,200);
+
+  // 日次ログ送信とstate保存が同時にGASへ届くとLockService競合で失敗することがあるため、
+  // settlePastDays()と同じく送信を先に完了させてから保存する
+  sendDailyLog(yd).then(function(){ save(); });
+  render();
+  closeYesterdayModal();
+  showFlash("+"+totalAdded+"点（前日分）");
+  if (unlocked > 0) setTimeout(function(){ showFlash("🎧 音声 解放！"); }, 900);
+  if (unlockedAtari > 0) setTimeout(function(){ showFlash("㊗️ 当たり 確定！"); }, unlocked>0 ? 1800 : 900);
+}
+
 // ───────── 設定画面（やることリスト・報酬リストの編集） ─────────
 // state.actions/state.rewardsは開いている間ずっと編集反映されるわけではなく、
 // いったんドラフト配列にコピーして編集し、各セクションの保存ボタンでstateへコミットする。
@@ -1507,6 +1719,14 @@ document.getElementById("manualConfirm").onclick = function(e){ e.stopPropagatio
 document.querySelector("#manualModal .modalCard").onclick = function(e){ e.stopPropagation(); };
 document.getElementById("manualModal").onclick = function(e){
   if (e.target === document.getElementById("manualModal")) closeManual();
+};
+
+document.getElementById("yesterdayBtn").onclick = openYesterdayModal;
+document.getElementById("yesterdayClose").onclick = function(e){ e.stopPropagation(); closeYesterdayModal(); };
+document.getElementById("yesterdayConfirm").onclick = function(e){ e.stopPropagation(); confirmYesterdayLog(); };
+document.querySelector("#yesterdayModal .modalCard").onclick = function(e){ e.stopPropagation(); };
+document.getElementById("yesterdayModal").onclick = function(e){
+  if (e.target === document.getElementById("yesterdayModal")) closeYesterdayModal();
 };
 
 document.getElementById("atariClose").onclick = function(e){ e.stopPropagation(); closeAtariModal(); };
