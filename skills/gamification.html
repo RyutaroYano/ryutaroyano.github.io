@@ -63,6 +63,7 @@
   .actionEmoji { font-size:22px; flex-shrink:0; width:26px; text-align:center; }
   .actionLabel { flex:1; }
   .actionPt { font-weight:700; color:#5a5a8c; font-size:16px; min-width:30px; text-align:right; }
+  .elementTag { flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; line-height:1; padding:3px 6px; border-radius:8px; border:1.5px solid; margin:0 6px; }
   .yesterdayBtn { flex-shrink:0; margin-bottom:10px; background:#fff; border:1.5px solid #ddd; color:#888; border-radius:8px; padding:4px 10px; font-size:11.5px; font-weight:700; cursor:pointer; }
   .yesterdayBtn:active { background:#f7f7f8; }
   .yesterdayStepVal { min-width:22px; text-align:center; font-weight:700; font-size:14px; color:#3a3a5c; }
@@ -340,34 +341,114 @@ function cloneDefault(x){ return JSON.parse(JSON.stringify(x)); }
 // 開く人（配布先など）向けの初期値。サンプルとして具体的な項目を用意しておき、
 // 設定画面から自由に編集・削除・追加してもらう形にする。
 var DEFAULT_ACTIONS = [
-  { id:"sleep",     emoji:"😴", label:"前日23時までに就寝 or 7.5時間以上寝た", pt:1, once:true, category:"土台" },
-  { id:"morning",   emoji:"🌅", label:"朝のルーティンを完遂した", pt:1, once:true, category:"土台" },
-  { id:"plan",      emoji:"🧠", label:"昨日の振り返りと今日の計画を立てた", pt:1, once:true, category:"土台" },
-  { id:"stretch5",  emoji:"🧘", label:"ストレッチを5分やった", pt:1, once:true, category:"健康" },
-  { id:"note5",     emoji:"📝", label:"note記事を5分書いた", pt:1, once:true, category:"スキル" },
-  { id:"yt5",       emoji:"🎬", label:"動画・音声編集を5分やった", pt:1, once:true, category:"スキル" },
-  { id:"walk8888",  emoji:"🚶", label:"8888歩以上歩いた", pt:1, once:true, category:"健康" },
-  { id:"contact",   emoji:"📧", label:"関係者に連絡を1件送った", pt:1, once:false, category:"人間関係" },
-  { id:"canele",    emoji:"🥐", label:"カヌレの仕事を33分33秒やった", pt:1, once:false, category:"経済" },
-  { id:"note33",    emoji:"📝", label:"note記事を33分33秒書いた", pt:1, once:false, category:"スキル" },
-  { id:"yt33",      emoji:"🎬", label:"動画・音声編集を33分33秒やった", pt:1, once:false, category:"スキル" },
+  { id:"sleep",     emoji:"😴", label:"前日23時までに就寝 or 7.5時間以上寝た", pt:1, once:true, category:"土台", tag:"" },
+  { id:"morning",   emoji:"🌅", label:"朝のルーティンを完遂した", pt:1, once:true, category:"土台", tag:"" },
+  { id:"plan",      emoji:"🧠", label:"昨日の振り返りと今日の計画を立てた", pt:1, once:true, category:"土台", tag:"" },
+  { id:"stretch5",  emoji:"🧘", label:"ストレッチを5分やった", pt:1, once:true, category:"健康", tag:"" },
+  { id:"note5",     emoji:"📝", label:"note記事を5分書いた", pt:1, once:true, category:"スキル", tag:"" },
+  { id:"yt5",       emoji:"🎬", label:"動画・音声編集を5分やった", pt:1, once:true, category:"スキル", tag:"" },
+  { id:"walk8888",  emoji:"🚶", label:"8888歩以上歩いた", pt:1, once:true, category:"健康", tag:"" },
+  { id:"contact",   emoji:"📧", label:"関係者に連絡を1件送った", pt:1, once:false, category:"人間関係", tag:"" },
+  { id:"canele",    emoji:"🥐", label:"カヌレの仕事を33分33秒やった", pt:1, once:false, category:"経済", tag:"" },
+  { id:"note33",    emoji:"📝", label:"note記事を33分33秒書いた", pt:1, once:false, category:"スキル", tag:"" },
+  { id:"yt33",      emoji:"🎬", label:"動画・音声編集を33分33秒やった", pt:1, once:false, category:"スキル", tag:"" },
 ];
 
 // スプレッドシートの列順はここで決める（カテゴリごとにグループ化）。
 // アプリ内の操作順（state.actions配列の順）とは独立している。
 var CATEGORY_ORDER = ["土台", "健康", "人間関係", "スキル", "経済"];
+// 各列に、火地風水タグの表示情報（絵文字+α/β・背景色・文字色）も一緒に乗せる。
+// GAS側はTAG_DEFSの中身を知らなくてよく、渡された色をそのままヘッダー装飾に使うだけでよい。
+function tagDisplayFor(tagKey){
+  var def = TAG_DEFS[tagKey];
+  if (!def) return { tagLabel:"", tagBg:"", tagText:"" };
+  return { tagLabel: def.emoji + def.variantChar, tagBg: def.bg, tagText: def.text };
+}
 function dailyLogColumns(){
   var cols = [];
+  function colFor(a, cat){
+    var tagInfo = tagDisplayFor(a.tag);
+    return { id:a.id, label:a.label, category:cat, tagLabel:tagInfo.tagLabel, tagBg:tagInfo.tagBg, tagText:tagInfo.tagText };
+  }
   CATEGORY_ORDER.forEach(function(cat){
     state.actions.forEach(function(a){
-      if (a.category === cat) cols.push({ id:a.id, label:a.label, category:cat });
+      if (a.category === cat) cols.push(colFor(a, cat));
     });
   });
   // 万一カテゴリ未設定の項目があれば最後に足す（漏れ防止）
   state.actions.forEach(function(a){
-    if (CATEGORY_ORDER.indexOf(a.category) === -1) cols.push({ id:a.id, label:a.label, category:a.category||"" });
+    if (CATEGORY_ORDER.indexOf(a.category) === -1) cols.push(colFor(a, a.category||""));
   });
   return cols;
+}
+
+// ───────── 火地風水タグ（やることリスト・報酬リスト共通） ─────────
+// 各項目（action/reward）は tag:"" (タグなし) か、下記キーのいずれかを持つ。
+// α＝濃い色／β＝薄い色。元素に当てはまらないもの（移動・睡眠など）はnoneのグレータグを使う。
+var TAG_DEFS = {
+  "none":        { emoji:"⚪", variantChar:"",  label:"元素外", bg:"#9E9E9E", border:"#9E9E9E", text:"#FFFFFF" },
+  "fire-alpha":  { emoji:"🔥", variantChar:"α", label:"火α",   bg:"#D32F2F", border:"#D32F2F", text:"#FFFFFF" },
+  "fire-beta":   { emoji:"🔥", variantChar:"β", label:"火β",   bg:"#FFCDD2", border:"#D32F2F", text:"#B71C1C" },
+  "earth-alpha": { emoji:"🌿", variantChar:"α", label:"土α",   bg:"#558B2F", border:"#558B2F", text:"#FFFFFF" },
+  "earth-beta":  { emoji:"🌿", variantChar:"β", label:"土β",   bg:"#DCEDC8", border:"#558B2F", text:"#33691E" },
+  "wind-alpha":  { emoji:"🌀", variantChar:"α", label:"風α",   bg:"#6A1B9A", border:"#6A1B9A", text:"#FFFFFF" },
+  "wind-beta":   { emoji:"🌀", variantChar:"β", label:"風β",   bg:"#E1BEE7", border:"#6A1B9A", text:"#4A148C" },
+  "water-alpha": { emoji:"💧", variantChar:"α", label:"水α",   bg:"#1565C0", border:"#1565C0", text:"#FFFFFF" },
+  "water-beta":  { emoji:"💧", variantChar:"β", label:"水β",   bg:"#BBDEFB", border:"#1565C0", text:"#0D47A1" }
+};
+var TAG_SELECT_OPTIONS = ["", "none", "fire-alpha","fire-beta","earth-alpha","earth-beta","wind-alpha","wind-beta","water-alpha","water-beta"];
+function tagSelectLabel(key){
+  if (!key || !TAG_DEFS[key]) return "－ タグなし";
+  return TAG_DEFS[key].emoji + " " + TAG_DEFS[key].label;
+}
+// 一覧画面（やることボタン・報酬ストック）に貼る小さな色付きタグを作る。タグなしならnullを返す。
+function buildTagPill(tagKey){
+  var def = TAG_DEFS[tagKey];
+  if (!def) return null;
+  var el = document.createElement("span");
+  el.className = "elementTag";
+  el.textContent = def.emoji + def.variantChar;
+  el.title = def.label;
+  el.style.background = def.bg;
+  el.style.borderColor = def.border;
+  el.style.color = def.text;
+  return el;
+}
+
+// 竜太郎さんが指定した初期タグ。idで一致すればそちらを優先し、id側が無い（設定画面で
+// 追加した独自idの）項目はラベル/名前一致で拾う。実行は1回きり（state.elementTagsSeeded）で、
+// 既にタグが入っている項目（このタグ機能を使って手動で設定済みのものも含む）は上書きしない。
+var INITIAL_TAG_ACTIONS_BY_ID = {
+  sleep:"earth-beta", morning:"earth-alpha", plan:"wind-alpha",
+  stretch5:"earth-beta", note5:"fire-alpha", walk8888:"earth-alpha",
+  contact:"water-alpha", note33:"fire-alpha", canele:"earth-alpha"
+};
+var INITIAL_TAG_ACTIONS_BY_LABEL = {
+  "やりたいこと欲しいものを10分書きだした":"fire-alpha",
+  "YouTube活動を3時間やった":"fire-alpha"
+};
+var INITIAL_TAG_REWARDS_BY_ID = {
+  off:"earth-beta", manga:"fire-beta", ytwatch:"fire-beta", eatout:"earth-beta", onsen:"earth-beta"
+};
+var INITIAL_TAG_REWARDS_BY_NAME = {
+  "自慰":"water-beta"
+};
+function seedInitialElementTagsOnce(){
+  if (state.elementTagsSeeded) return;
+  state.actions.forEach(function(a){
+    if (!a.tag){
+      var t = INITIAL_TAG_ACTIONS_BY_ID[a.id] || INITIAL_TAG_ACTIONS_BY_LABEL[a.label];
+      if (t) a.tag = t;
+    }
+  });
+  state.rewards.forEach(function(r){
+    if (!r.tag){
+      var t = INITIAL_TAG_REWARDS_BY_ID[r.id] || INITIAL_TAG_REWARDS_BY_NAME[r.name];
+      if (t) r.tag = t;
+    }
+  });
+  state.elementTagsSeeded = true;
+  save();
 }
 
 // carryover = 翌日に持ち越せるか（falseは日をまたぐと0に戻る＝当日限り）。
@@ -376,14 +457,14 @@ function dailyLogColumns(){
 // 開く人向けの初期値。サンプルとして具体的な項目を用意しておき、
 // 設定画面から自由に編集・削除・追加してもらう形にする（当たりだけは削除不可・盤面7-7固定）。
 var DEFAULT_REWARDS = [
-  { id:"off",        emoji:"🛁", name:"湯船", carryover:false },
-  { id:"smartphone", emoji:"📱", name:"スマホ10分", carryover:false },
-  { id:"manga",       emoji:"📔", name:"漫画", carryover:false },
-  { id:"ytwatch",     emoji:"📺", name:"YouTube", carryover:false },
-  { id:"onsen",       emoji:"♨️", name:"温泉", carryover:true },
-  { id:"eatout",      emoji:"🍱", name:"外食", carryover:true },
-  { id:"self",        emoji:"🔞", name:"自慰", carryover:true },
-  { id:"atari",       emoji:"㊗️", name:"当たり", carryover:true },
+  { id:"off",        emoji:"🛁", name:"湯船", carryover:false, tag:"" },
+  { id:"smartphone", emoji:"📱", name:"スマホ10分", carryover:false, tag:"" },
+  { id:"manga",       emoji:"📔", name:"漫画", carryover:false, tag:"" },
+  { id:"ytwatch",     emoji:"📺", name:"YouTube", carryover:false, tag:"" },
+  { id:"onsen",       emoji:"♨️", name:"温泉", carryover:true, tag:"" },
+  { id:"eatout",      emoji:"🍱", name:"外食", carryover:true, tag:"" },
+  { id:"self",        emoji:"🔞", name:"自慰", carryover:true, tag:"" },
+  { id:"atari",       emoji:"㊗️", name:"当たり", carryover:true, tag:"" },
 ];
 
 // 盤面（線対称・優先順で読める）：設定画面の「盤面編集」でマス単位に編集する。
@@ -436,7 +517,8 @@ var state = {
   actions:cloneDefault(DEFAULT_ACTIONS),
   rewards:cloneDefault(DEFAULT_REWARDS),
   board:cloneDefault(DEFAULT_BOARD),
-  stock:null
+  stock:null,
+  elementTagsSeeded:false
 };
 reindexRewards();
 state.stock = buildZeroStock();
@@ -480,6 +562,7 @@ function applyLoadedState(s){
   state.lastSettled = s.lastSettled||null;
   state.earnedTotal = s.earnedTotal||0;
   state.miyazaki = s.miyazaki||0;
+  state.elementTagsSeeded = !!s.elementTagsSeeded;
 }
 
 // この端末にstateをそのまま覚えさせる（オフラインでも直前の状態から始められるように）
@@ -1189,6 +1272,15 @@ function buildActionSettingsRow(a, groupArr, idxInGroup){
     catSelect.appendChild(opt);
   });
   catSelect.onchange = function(){ a.category = catSelect.value; };
+  var tagSelect = document.createElement("select");
+  tagSelect.className = "settingsSelect";
+  TAG_SELECT_OPTIONS.forEach(function(key){
+    var opt = document.createElement("option");
+    opt.value = key; opt.textContent = tagSelectLabel(key);
+    if ((a.tag||"") === key) opt.selected = true;
+    tagSelect.appendChild(opt);
+  });
+  tagSelect.onchange = function(){ a.tag = tagSelect.value; };
   var ptInput = document.createElement("input");
   ptInput.type = "number"; ptInput.min = "1"; ptInput.step = "1"; ptInput.className = "settingsNumInput";
   ptInput.value = a.pt;
@@ -1215,7 +1307,7 @@ function buildActionSettingsRow(a, groupArr, idxInGroup){
   downBtn.onclick = function(){
     if (idxInGroup<groupArr.length-1){ swapDraftItems(actionsDraft, a, groupArr[idxInGroup+1]); renderActionsSettings(); }
   };
-  line2.appendChild(onceLabel); line2.appendChild(catSelect); line2.appendChild(ptLabel);
+  line2.appendChild(onceLabel); line2.appendChild(catSelect); line2.appendChild(tagSelect); line2.appendChild(ptLabel);
   line2.appendChild(upBtn); line2.appendChild(downBtn);
 
   row.appendChild(line1); row.appendChild(line2);
@@ -1223,7 +1315,7 @@ function buildActionSettingsRow(a, groupArr, idxInGroup){
 }
 
 function addActionDraft(){
-  actionsDraft.push({ id:"custom"+Date.now().toString(36), emoji:"⭐", label:"", pt:1, once:false, category:CATEGORY_ORDER[0] });
+  actionsDraft.push({ id:"custom"+Date.now().toString(36), emoji:"⭐", label:"", pt:1, once:false, category:CATEGORY_ORDER[0], tag:"" });
   renderActionsSettings();
 }
 
@@ -1318,6 +1410,16 @@ function buildRewardSettingsRow(r, groupArr, idxInGroup){
   carryLabel.appendChild(carryCheck);
   carryLabel.appendChild(document.createTextNode("持ち越し可"));
 
+  var tagSelect = document.createElement("select");
+  tagSelect.className = "settingsSelect";
+  TAG_SELECT_OPTIONS.forEach(function(key){
+    var opt = document.createElement("option");
+    opt.value = key; opt.textContent = tagSelectLabel(key);
+    if ((r.tag||"") === key) opt.selected = true;
+    tagSelect.appendChild(opt);
+  });
+  tagSelect.onchange = function(){ r.tag = tagSelect.value; };
+
   var countLabel = document.createElement("span");
   countLabel.className = "settingsCountLabel";
   countLabel.textContent = isAtari ? "盤面：7-7に固定" : "盤面："+countOnBoard(r.id, state.board)+"/64";
@@ -1335,7 +1437,7 @@ function buildRewardSettingsRow(r, groupArr, idxInGroup){
     if (idxInGroup<groupArr.length-1){ swapDraftItems(rewardsDraft, r, groupArr[idxInGroup+1]); renderRewardsSettings(); }
   };
 
-  line2.appendChild(carryLabel); line2.appendChild(countLabel);
+  line2.appendChild(carryLabel); line2.appendChild(tagSelect); line2.appendChild(countLabel);
   line2.appendChild(upBtn); line2.appendChild(downBtn);
 
   row.appendChild(line1); row.appendChild(line2);
@@ -1343,7 +1445,7 @@ function buildRewardSettingsRow(r, groupArr, idxInGroup){
 }
 
 function addRewardDraft(){
-  rewardsDraft.push({ id:"reward"+Date.now().toString(36), emoji:"⭐", name:"", carryover:false });
+  rewardsDraft.push({ id:"reward"+Date.now().toString(36), emoji:"⭐", name:"", carryover:false, tag:"" });
   renderRewardsSettings();
 }
 
@@ -1558,6 +1660,8 @@ function render(){
     var ptSpan = document.createElement("span");
     ptSpan.className = "actionPt"; ptSpan.textContent = "+"+a.pt;
     btn.appendChild(emojiSpan); btn.appendChild(labelSpan);
+    var tagPill = buildTagPill(a.tag);
+    if (tagPill) btn.appendChild(tagPill);
 
     // 複数回押せるボタンは、当日の押下回数をドットで表示
     if (!a.once){
@@ -1624,7 +1728,10 @@ function render(){
     }
     var countSpan = document.createElement("span");
     countSpan.className = "stockCount"; countSpan.textContent = "×"+n;
-    row.appendChild(emojiSpan); row.appendChild(nameSpan); row.appendChild(countSpan);
+    row.appendChild(emojiSpan); row.appendChild(nameSpan);
+    var tagPill = buildTagPill(r.tag);
+    if (tagPill) row.appendChild(tagPill);
+    row.appendChild(countSpan);
     var ub = document.createElement("button");
     ub.className = "useBtn";
     ub.textContent = (rk === "atari") ? "交換する" : "使う";
@@ -1764,6 +1871,7 @@ function startApp(){
   render();
   load().then(function(){
     settlePastDays();
+    seedInitialElementTagsOnce();
     render();
   });
   // ネットが戻ったら、押した記録が確実にサーバーへ追いつくようにする
