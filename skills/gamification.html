@@ -357,16 +357,27 @@ var DEFAULT_ACTIONS = [
 // スプレッドシートの列順はここで決める（カテゴリごとにグループ化）。
 // アプリ内の操作順（state.actions配列の順）とは独立している。
 var CATEGORY_ORDER = ["土台", "健康", "人間関係", "スキル", "経済"];
+// 各列に、火地風水タグの表示情報（絵文字+α/β・背景色・文字色）も一緒に乗せる。
+// GAS側はTAG_DEFSの中身を知らなくてよく、渡された色をそのままヘッダー装飾に使うだけでよい。
+function tagDisplayFor(tagKey){
+  var def = TAG_DEFS[tagKey];
+  if (!def) return { tagLabel:"", tagBg:"", tagText:"" };
+  return { tagLabel: def.emoji + def.variantChar, tagBg: def.bg, tagText: def.text };
+}
 function dailyLogColumns(){
   var cols = [];
+  function colFor(a, cat){
+    var tagInfo = tagDisplayFor(a.tag);
+    return { id:a.id, label:a.label, category:cat, tagLabel:tagInfo.tagLabel, tagBg:tagInfo.tagBg, tagText:tagInfo.tagText };
+  }
   CATEGORY_ORDER.forEach(function(cat){
     state.actions.forEach(function(a){
-      if (a.category === cat) cols.push({ id:a.id, label:a.label, category:cat });
+      if (a.category === cat) cols.push(colFor(a, cat));
     });
   });
   // 万一カテゴリ未設定の項目があれば最後に足す（漏れ防止）
   state.actions.forEach(function(a){
-    if (CATEGORY_ORDER.indexOf(a.category) === -1) cols.push({ id:a.id, label:a.label, category:a.category||"" });
+    if (CATEGORY_ORDER.indexOf(a.category) === -1) cols.push(colFor(a, a.category||""));
   });
   return cols;
 }
