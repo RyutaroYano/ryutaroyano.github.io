@@ -404,6 +404,42 @@ function buildTagPill(tagKey){
   return el;
 }
 
+// 竜太郎さんが指定した初期タグ。idで一致すればそちらを優先し、id側が無い（設定画面で
+// 追加した独自idの）項目はラベル/名前一致で拾う。実行は1回きり（state.elementTagsSeeded）で、
+// 既にタグが入っている項目（このタグ機能を使って手動で設定済みのものも含む）は上書きしない。
+var INITIAL_TAG_ACTIONS_BY_ID = {
+  sleep:"earth-beta", morning:"earth-alpha", plan:"wind-alpha",
+  stretch5:"earth-beta", note5:"fire-alpha", walk8888:"earth-alpha",
+  contact:"water-alpha", note33:"fire-alpha", canele:"earth-alpha"
+};
+var INITIAL_TAG_ACTIONS_BY_LABEL = {
+  "やりたいこと欲しいものを10分書きだした":"fire-alpha",
+  "YouTube活動を3時間やった":"fire-alpha"
+};
+var INITIAL_TAG_REWARDS_BY_ID = {
+  off:"earth-beta", manga:"fire-beta", ytwatch:"fire-beta", eatout:"earth-beta", onsen:"earth-beta"
+};
+var INITIAL_TAG_REWARDS_BY_NAME = {
+  "自慰":"water-beta"
+};
+function seedInitialElementTagsOnce(){
+  if (state.elementTagsSeeded) return;
+  state.actions.forEach(function(a){
+    if (!a.tag){
+      var t = INITIAL_TAG_ACTIONS_BY_ID[a.id] || INITIAL_TAG_ACTIONS_BY_LABEL[a.label];
+      if (t) a.tag = t;
+    }
+  });
+  state.rewards.forEach(function(r){
+    if (!r.tag){
+      var t = INITIAL_TAG_REWARDS_BY_ID[r.id] || INITIAL_TAG_REWARDS_BY_NAME[r.name];
+      if (t) r.tag = t;
+    }
+  });
+  state.elementTagsSeeded = true;
+  save();
+}
+
 // carryover = 翌日に持ち越せるか（falseは日をまたぐと0に戻る＝当日限り）。
 // 各報酬が盤面の何マスを占めるかはstate.boardの実際の中身から数える（別途持たない・二重管理しない）。
 // 竜太郎さん個人の報酬構成は既にstate.rewardsとして保存済みなので、ここは初めてこのアプリを
@@ -470,7 +506,8 @@ var state = {
   actions:cloneDefault(DEFAULT_ACTIONS),
   rewards:cloneDefault(DEFAULT_REWARDS),
   board:cloneDefault(DEFAULT_BOARD),
-  stock:null
+  stock:null,
+  elementTagsSeeded:false
 };
 reindexRewards();
 state.stock = buildZeroStock();
@@ -514,6 +551,7 @@ function applyLoadedState(s){
   state.lastSettled = s.lastSettled||null;
   state.earnedTotal = s.earnedTotal||0;
   state.miyazaki = s.miyazaki||0;
+  state.elementTagsSeeded = !!s.elementTagsSeeded;
 }
 
 // この端末にstateをそのまま覚えさせる（オフラインでも直前の状態から始められるように）
@@ -1822,6 +1860,7 @@ function startApp(){
   render();
   load().then(function(){
     settlePastDays();
+    seedInitialElementTagsOnce();
     render();
   });
   // ネットが戻ったら、押した記録が確実にサーバーへ追いつくようにする
