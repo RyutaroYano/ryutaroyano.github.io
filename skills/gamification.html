@@ -52,22 +52,21 @@
     60% { opacity:1; transform:translateY(-90%) scale(1); }
     100% { opacity:0; transform:translateY(-140%) scale(1); }
   }
-  .dotRow { position:absolute; left:50px; bottom:6px; display:flex; align-items:center; gap:3px; pointer-events:none; }
-  .dot { width:6px; height:6px; border-radius:50%; background:#e8562f; display:inline-block; }
-  .dot.dotGap { margin-left:5px; }
   .actionBtn:active { transform:scale(0.98); }
-  .actionBtn.usedOnce { background:#eee; border-color:#ddd; color:#aaa; cursor:default; }
-  .actionBtn.usedOnce:active { transform:none; }
-  .actionBtn.usedOnce .actionEmoji { filter:grayscale(1); opacity:.6; }
-  .actionBtn.usedOnce .actionPt { color:#bbb; }
+  .actionBtn.capped { background:#eee; border-color:#ddd; color:#aaa; cursor:default; }
+  .actionBtn.capped:active { transform:none; }
+  .actionBtn.capped .actionEmoji { filter:grayscale(1); opacity:.6; }
+  .actionBtn.capped .actionPt { color:#bbb; }
   .actionEmoji { font-size:22px; flex-shrink:0; width:26px; text-align:center; }
   .actionLabel { flex:1; }
   .actionPt { font-weight:700; color:#5a5a8c; font-size:16px; min-width:30px; text-align:right; }
-  .elementTag { flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; line-height:1; padding:3px 6px; border-radius:8px; border:1.5px solid; margin:0 6px; }
+  .elementTag { flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; line-height:1; padding:3px 6px; border-radius:8px; border:1.5px solid; margin:0 3px 0 8px; }
+  .pointStack { display:flex; flex-direction:column; align-items:flex-end; flex-shrink:0; }
+  .miniHint { font-size:9.5px; color:#aaa; font-weight:700; line-height:1.4; }
+  .actionBtn.capped .miniHint { color:#bbb; }
   .yesterdayBtn { flex-shrink:0; margin-bottom:10px; background:#fff; border:1.5px solid #ddd; color:#888; border-radius:8px; padding:4px 10px; font-size:11.5px; font-weight:700; cursor:pointer; }
   .yesterdayBtn:active { background:#f7f7f8; }
   .yesterdayStepVal { min-width:22px; text-align:center; font-weight:700; font-size:14px; color:#3a3a5c; }
-  .yesterdayLockedTag { font-size:10px; color:#aaa; margin-left:6px; }
   .yesterdayFloorNote { font-size:11px; color:#aaa; }
 
   .diceRow { display:flex; align-items:center; gap:12px; margin:6px 0 14px; height:76px; }
@@ -111,10 +110,6 @@
   .stockEmoji { font-size:22px; }
   .stockName { flex:1; font-size:14px; }
 
-  .todayBox { display:flex; gap:10px; margin-bottom:12px; }
-  .todayBoxLabel { writing-mode:vertical-rl; font-size:12px; font-weight:700; color:#c98a4a; letter-spacing:2px; padding:2px 8px 2px 0; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-right:2px solid #f0c9a0; }
-  .todayBoxInner { flex:1; display:flex; flex-direction:column; gap:7px; }
-  .carryWrap { display:flex; flex-direction:column; gap:7px; }
   .stockCount { font-weight:700; font-size:16px; color:#3a3a5c; min-width:34px; text-align:right; }
   .useBtn { background:#3a3a5c; color:#fff; border:none; border-radius:9px; padding:7px 16px; font-size:13px; font-weight:700; cursor:pointer; }
   .useBtn:disabled { background:#d5d5dd; }
@@ -142,8 +137,6 @@
   .modalOverlay.fullscreen .modalCard { max-width:480px; width:100%; height:100%; max-height:100%; border-radius:0; overflow-y:auto; display:flex; flex-direction:column; }
   .settingsSection { margin-bottom:26px; }
   .settingsSectionTitle { font-size:14px; font-weight:700; margin-bottom:10px; }
-  .settingsGroupLabel { font-size:12px; font-weight:700; color:#999; margin:10px 0 2px; }
-  .settingsGroupLabel:first-child { margin-top:0; }
   .settingsList { display:flex; flex-direction:column; gap:10px; }
   .settingsRow { border:1.5px solid #e2e2ea; border-radius:12px; padding:10px 12px; background:#fafafa; }
   .settingsRowLine1 { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
@@ -270,14 +263,14 @@
   <div class="modalOverlay fullscreen" id="settingsModal">
     <div class="modalCard">
       <div class="modalTitle">⚙️ 設定</div>
-      <div class="modalSub">やることリストと報酬リストを編集できます。</div>
+      <div class="modalSub">点数リストと報酬リストを編集できます。</div>
 
       <div class="settingsSection">
-        <div class="settingsSectionTitle">やることリスト</div>
+        <div class="settingsSectionTitle">点数リスト</div>
         <div class="settingsList" id="actionsSettingsList"></div>
         <button class="settingsAddBtn" id="addActionBtn">＋ やることを追加</button>
         <div class="settingsValidation" id="actionsValidation"></div>
-        <button class="settingsSaveBtn" id="saveActionsBtn">やることリストを保存</button>
+        <button class="settingsSaveBtn" id="saveActionsBtn">点数リストを保存</button>
       </div>
 
       <div class="settingsSection">
@@ -340,18 +333,19 @@ function cloneDefault(x){ return JSON.parse(JSON.stringify(x)); }
 // 竜太郎さん個人の行動リストは既にstate.actionsとして保存済みなので、ここは初めてこのアプリを
 // 開く人（配布先など）向けの初期値。サンプルとして具体的な項目を用意しておき、
 // 設定画面から自由に編集・削除・追加してもらう形にする。
+// dailyLimit: 1日に何回までゲットできるか（正の整数）。nullは無制限（∞）。
 var DEFAULT_ACTIONS = [
-  { id:"sleep",     emoji:"😴", label:"前日23時までに就寝 or 7.5時間以上寝た", pt:1, once:true, category:"土台", tag:"" },
-  { id:"morning",   emoji:"🌅", label:"朝のルーティンを完遂した", pt:1, once:true, category:"土台", tag:"" },
-  { id:"plan",      emoji:"🧠", label:"昨日の振り返りと今日の計画を立てた", pt:1, once:true, category:"土台", tag:"" },
-  { id:"stretch5",  emoji:"🧘", label:"ストレッチを5分やった", pt:1, once:true, category:"健康", tag:"" },
-  { id:"note5",     emoji:"📝", label:"note記事を5分書いた", pt:1, once:true, category:"スキル", tag:"" },
-  { id:"yt5",       emoji:"🎬", label:"動画・音声編集を5分やった", pt:1, once:true, category:"スキル", tag:"" },
-  { id:"walk8888",  emoji:"🚶", label:"8888歩以上歩いた", pt:1, once:true, category:"健康", tag:"" },
-  { id:"contact",   emoji:"📧", label:"関係者に連絡を1件送った", pt:1, once:false, category:"人間関係", tag:"" },
-  { id:"canele",    emoji:"🥐", label:"カヌレの仕事を33分33秒やった", pt:1, once:false, category:"経済", tag:"" },
-  { id:"note33",    emoji:"📝", label:"note記事を33分33秒書いた", pt:1, once:false, category:"スキル", tag:"" },
-  { id:"yt33",      emoji:"🎬", label:"動画・音声編集を33分33秒やった", pt:1, once:false, category:"スキル", tag:"" },
+  { id:"sleep",     emoji:"😴", label:"前日23時までに就寝 or 7.5時間以上寝た", pt:1, dailyLimit:1, category:"土台", tag:"" },
+  { id:"morning",   emoji:"🌅", label:"朝のルーティンを完遂した", pt:1, dailyLimit:1, category:"土台", tag:"" },
+  { id:"plan",      emoji:"🧠", label:"昨日の振り返りと今日の計画を立てた", pt:1, dailyLimit:1, category:"土台", tag:"" },
+  { id:"stretch5",  emoji:"🧘", label:"ストレッチを5分やった", pt:1, dailyLimit:1, category:"健康", tag:"" },
+  { id:"note5",     emoji:"📝", label:"note記事を5分書いた", pt:1, dailyLimit:1, category:"スキル", tag:"" },
+  { id:"yt5",       emoji:"🎬", label:"動画・音声編集を5分やった", pt:1, dailyLimit:1, category:"スキル", tag:"" },
+  { id:"walk8888",  emoji:"🚶", label:"8888歩以上歩いた", pt:1, dailyLimit:1, category:"健康", tag:"" },
+  { id:"contact",   emoji:"📧", label:"関係者に連絡を1件送った", pt:1, dailyLimit:null, category:"人間関係", tag:"" },
+  { id:"canele",    emoji:"🥐", label:"カヌレの仕事を33分33秒やった", pt:1, dailyLimit:null, category:"経済", tag:"" },
+  { id:"note33",    emoji:"📝", label:"note記事を33分33秒書いた", pt:1, dailyLimit:null, category:"スキル", tag:"" },
+  { id:"yt33",      emoji:"🎬", label:"動画・音声編集を33分33秒やった", pt:1, dailyLimit:null, category:"スキル", tag:"" },
 ];
 
 // スプレッドシートの列順はここで決める（カテゴリごとにグループ化）。
@@ -382,26 +376,26 @@ function dailyLogColumns(){
   return cols;
 }
 
-// ───────── 火地風水タグ（やることリスト・報酬リスト共通） ─────────
-// 各項目（action/reward）は tag:"" (タグなし) か、下記キーのいずれかを持つ。
+// ───────── 火地風水タグ（点数リスト・報酬リスト共通） ─────────
+// 各項目（action/reward）は tag:"" (元素なし) か、下記キーのいずれかを持つ。
 // α＝濃い色／β＝薄い色。元素に当てはまらないもの（移動・睡眠など）はnoneのグレータグを使う。
 var TAG_DEFS = {
   "none":        { emoji:"⚪", variantChar:"",  label:"元素外", bg:"#9E9E9E", border:"#9E9E9E", text:"#FFFFFF" },
-  "fire-alpha":  { emoji:"🔥", variantChar:"α", label:"火α",   bg:"#D32F2F", border:"#D32F2F", text:"#FFFFFF" },
-  "fire-beta":   { emoji:"🔥", variantChar:"β", label:"火β",   bg:"#FFCDD2", border:"#D32F2F", text:"#B71C1C" },
-  "earth-alpha": { emoji:"🌿", variantChar:"α", label:"土α",   bg:"#558B2F", border:"#558B2F", text:"#FFFFFF" },
-  "earth-beta":  { emoji:"🌿", variantChar:"β", label:"土β",   bg:"#DCEDC8", border:"#558B2F", text:"#33691E" },
-  "wind-alpha":  { emoji:"🌀", variantChar:"α", label:"風α",   bg:"#6A1B9A", border:"#6A1B9A", text:"#FFFFFF" },
-  "wind-beta":   { emoji:"🌀", variantChar:"β", label:"風β",   bg:"#E1BEE7", border:"#6A1B9A", text:"#4A148C" },
-  "water-alpha": { emoji:"💧", variantChar:"α", label:"水α",   bg:"#1565C0", border:"#1565C0", text:"#FFFFFF" },
-  "water-beta":  { emoji:"💧", variantChar:"β", label:"水β",   bg:"#BBDEFB", border:"#1565C0", text:"#0D47A1" }
+  "fire-alpha":  { emoji:"🔥", variantChar:"α", label:"火α",   bg:"#DC5959", border:"#DC5959", text:"#FFFFFF" },
+  "fire-beta":   { emoji:"🔥", variantChar:"β", label:"火β",   bg:"#FFCDD2", border:"#DC5959", text:"#B71C1C" },
+  "earth-alpha": { emoji:"🌿", variantChar:"α", label:"土α",   bg:"#77A259", border:"#77A259", text:"#FFFFFF" },
+  "earth-beta":  { emoji:"🌿", variantChar:"β", label:"土β",   bg:"#DCEDC8", border:"#77A259", text:"#33691E" },
+  "wind-alpha":  { emoji:"🌀", variantChar:"α", label:"風α",   bg:"#8849AE", border:"#8849AE", text:"#FFFFFF" },
+  "wind-beta":   { emoji:"🌀", variantChar:"β", label:"風β",   bg:"#E1BEE7", border:"#8849AE", text:"#4A148C" },
+  "water-alpha": { emoji:"💧", variantChar:"α", label:"水α",   bg:"#4484CD", border:"#4484CD", text:"#FFFFFF" },
+  "water-beta":  { emoji:"💧", variantChar:"β", label:"水β",   bg:"#BBDEFB", border:"#4484CD", text:"#0D47A1" }
 };
 var TAG_SELECT_OPTIONS = ["", "none", "fire-alpha","fire-beta","earth-alpha","earth-beta","wind-alpha","wind-beta","water-alpha","water-beta"];
 function tagSelectLabel(key){
-  if (!key || !TAG_DEFS[key]) return "－ タグなし";
+  if (!key || !TAG_DEFS[key]) return "－ 元素なし";
   return TAG_DEFS[key].emoji + " " + TAG_DEFS[key].label;
 }
-// 一覧画面（やることボタン・報酬ストック）に貼る小さな色付きタグを作る。タグなしならnullを返す。
+// 一覧画面（やることボタン・報酬ストック）に貼る小さな色付きタグを作る。元素なしならnullを返す。
 function buildTagPill(tagKey){
   var def = TAG_DEFS[tagKey];
   if (!def) return null;
@@ -550,9 +544,21 @@ function gasUrl(){
 // 読み込んだ生データ(s)をstateへ適用する共通処理。
 // actions/rewards/boardが無い（=まだ設定画面を使ったことがない）場合はDEFAULT_*から補う。
 // stockのデフォルトはrewardsが確定した後でないと組み立てられないので、この順番を守ること。
+// 旧スキーマ（once:true/false）で保存された項目を、新スキーマ（dailyLimit:数値/null）へ
+// その場で変換する。once:trueだった項目は「1日1回まで」＝dailyLimit:1として引き継ぎ、
+// once:falseだった項目は元々無制限だったのでdailyLimit:null（∞）のまま維持する。
+function migrateActionSchema_(a){
+  if (a.dailyLimit === undefined){
+    a.dailyLimit = a.once ? 1 : null;
+  }
+  delete a.once;
+  return a;
+}
+
 function applyLoadedState(s){
   state.points = s.points||0;
   state.actions = (s.actions && s.actions.length) ? s.actions : cloneDefault(DEFAULT_ACTIONS);
+  state.actions.forEach(migrateActionSchema_);
   state.rewards = (s.rewards && s.rewards.length) ? s.rewards : cloneDefault(DEFAULT_REWARDS);
   reindexRewards();
   state.board = (s.board && Array.isArray(s.board) && s.board.length === 8) ? s.board : cloneDefault(DEFAULT_BOARD);
@@ -684,12 +690,7 @@ function buildDailyLogPayload(dateStr){
   var counts = {};
   var totalPoints = 0;
   state.actions.forEach(function(a){
-    var n;
-    if (a.once){
-      n = rec[a.id] ? 1 : 0;
-    } else {
-      n = rec[a.id] || 0;
-    }
+    var n = Number(rec[a.id]) || 0;
     counts[a.id] = n;
     totalPoints += n * a.pt;
   });
@@ -773,19 +774,22 @@ function flashOnButton(btn, msg){
   setTimeout(function(){ if (f.parentNode) f.parentNode.removeChild(f); }, 900);
 }
 
+// 指定日・指定actionの記録済み回数を数値で返す（未記録なら0）。
+// 旧スキーマ時代にonce項目へtrueを直接保存していた古い記録もNumber()で1として扱える。
+function dailyCount_(dateStr, actionId){
+  var rec = state.daily[dateStr];
+  return (rec && Number(rec[actionId])) || 0;
+}
+
 function addPoint(a, btn){
   // 記録ボタンを押すたびに、日をまたいでいないか念のため確認しておく
   settlePastDays();
   var td = todayStr();
   if (!state.daily[td]) state.daily[td] = {};
-  // 5分系（once）は当日1回だけ。押下済みなら無視
-  if (a.once){
-    if (state.daily[td][a.id]) return;
-    state.daily[td][a.id] = true;
-  } else {
-    // 複数回押せるものは当日の回数をカウント
-    state.daily[td][a.id] = (state.daily[td][a.id] || 0) + 1;
-  }
+  var count = dailyCount_(td, a.id);
+  // dailyLimitが設定されていて、既に上限に達していたら無視（未設定＝nullは無制限）
+  if (a.dailyLimit && count >= a.dailyLimit) return;
+  state.daily[td][a.id] = count + 1;
   state.points += a.pt;
   state.log.unshift({ date:todayStr(), type:"earn", detail:a.label, pt:a.pt });
   // 累積獲得点を進め、10点をまたぐごとに海野さん音声を1回解放
@@ -1003,8 +1007,12 @@ var yesterdayDraft = {};
 function openYesterdayModal(){
   settlePastDays(); // 他のエントリポイントと同じく、開く前に念のため日跨ぎを確認しておく
   var rec = state.daily[yesterdayStr()] || {};
-  yesterdayOriginal = cloneDefault(rec);
-  yesterdayDraft = cloneDefault(rec);
+  // 旧スキーマ時代の記録（once項目にtrueを直接保存していたもの）が混じっていても、
+  // ここで数値に正規化しておく（表示・計算はすべて数値前提のため）
+  var normalizedRec = {};
+  Object.keys(rec).forEach(function(id){ normalizedRec[id] = Number(rec[id]) || 0; });
+  yesterdayOriginal = cloneDefault(normalizedRec);
+  yesterdayDraft = cloneDefault(normalizedRec);
   document.getElementById("yesterdaySub").textContent =
     "対象日：" + yesterdayStr() + "（昨日）。すでに記録済みの項目は減らせません。";
   renderYesterdayChecklist();
@@ -1043,67 +1051,46 @@ function renderYesterdayChecklist(){
     var line2 = document.createElement("div");
     line2.className = "settingsRowLine2";
 
-    if (a.once){
-      var already = !!yesterdayOriginal[a.id];
-      var checkLabel = document.createElement("label");
-      checkLabel.className = "settingsToggleLabel";
-      var check = document.createElement("input");
-      check.type = "checkbox";
-      check.checked = !!yesterdayDraft[a.id];
-      check.disabled = already;
-      check.onchange = function(){ toggleYesterdayOnce(a.id); };
-      checkLabel.appendChild(check);
-      checkLabel.appendChild(document.createTextNode(already ? "記録済み" : "追加する"));
-      line2.appendChild(checkLabel);
-      if (already){
-        var tag = document.createElement("span");
-        tag.className = "yesterdayLockedTag";
-        tag.textContent = "変更不可";
-        line2.appendChild(tag);
-      }
-    } else {
-      var floor = yesterdayOriginal[a.id] || 0;
-      var current = yesterdayDraft[a.id] || 0;
-      var floorNote = document.createElement("span");
-      floorNote.className = "yesterdayFloorNote";
-      floorNote.textContent = "記録済み: " + floor + "回";
-      var minusBtn = document.createElement("button");
-      minusBtn.className = "settingsReorderBtn";
-      minusBtn.textContent = "－";
-      minusBtn.disabled = (current <= floor);
-      minusBtn.onclick = function(){ stepYesterdayRepeat(a.id, -1); };
-      var valSpan = document.createElement("span");
-      valSpan.className = "yesterdayStepVal";
-      valSpan.textContent = current;
-      var plusBtn = document.createElement("button");
-      plusBtn.className = "settingsReorderBtn";
-      plusBtn.textContent = "＋";
-      plusBtn.onclick = function(){ stepYesterdayRepeat(a.id, 1); };
-      line2.appendChild(floorNote);
-      line2.appendChild(minusBtn);
-      line2.appendChild(valSpan);
-      line2.appendChild(plusBtn);
-    }
+    // 記録済みの数より下げることはできず（罰則なし設計）、dailyLimitが設定されていれば
+    // それ以上は追加できない（メイン画面の上限と揃える）
+    var floor = yesterdayOriginal[a.id] || 0;
+    var current = yesterdayDraft[a.id] || 0;
+    var floorNote = document.createElement("span");
+    floorNote.className = "yesterdayFloorNote";
+    floorNote.textContent = "記録済み: " + floor + "回" + (a.dailyLimit ? "（上限"+a.dailyLimit+"）" : "");
+    var minusBtn = document.createElement("button");
+    minusBtn.className = "settingsReorderBtn";
+    minusBtn.textContent = "－";
+    minusBtn.disabled = (current <= floor);
+    minusBtn.onclick = function(){ stepYesterdayRepeat(a.id, -1); };
+    var valSpan = document.createElement("span");
+    valSpan.className = "yesterdayStepVal";
+    valSpan.textContent = current;
+    var plusBtn = document.createElement("button");
+    plusBtn.className = "settingsReorderBtn";
+    plusBtn.textContent = "＋";
+    plusBtn.disabled = !!(a.dailyLimit && current >= a.dailyLimit);
+    plusBtn.onclick = function(){ stepYesterdayRepeat(a.id, 1); };
+    line2.appendChild(floorNote);
+    line2.appendChild(minusBtn);
+    line2.appendChild(valSpan);
+    line2.appendChild(plusBtn);
 
     row.appendChild(line1); row.appendChild(line2);
     return row;
   }
 
-  state.actions.filter(function(a){ return a.once; }).forEach(function(a){ list.appendChild(buildRow(a)); });
-  state.actions.filter(function(a){ return !a.once; }).forEach(function(a){ list.appendChild(buildRow(a)); });
+  state.actions.forEach(function(a){ list.appendChild(buildRow(a)); });
 
   updateYesterdaySummary();
 }
 
-function toggleYesterdayOnce(id){
-  yesterdayDraft[id] = !yesterdayDraft[id];
-  renderYesterdayChecklist();
-}
-
 function stepYesterdayRepeat(id, delta){
+  var a = state.actions.filter(function(x){ return x.id === id; })[0];
   var floor = yesterdayOriginal[id] || 0;
   var next = (yesterdayDraft[id] || 0) + delta;
   if (next < floor) next = floor; // 記録済みの数より下げることはできない
+  if (a && a.dailyLimit && next > a.dailyLimit) next = a.dailyLimit; // 1日の上限は超えられない
   yesterdayDraft[id] = next;
   renderYesterdayChecklist();
 }
@@ -1111,12 +1098,8 @@ function stepYesterdayRepeat(id, delta){
 function computeYesterdayAdded(){
   var total = 0;
   state.actions.forEach(function(a){
-    if (a.once){
-      if (yesterdayDraft[a.id] && !yesterdayOriginal[a.id]) total += a.pt;
-    } else {
-      var delta = (yesterdayDraft[a.id]||0) - (yesterdayOriginal[a.id]||0);
-      if (delta > 0) total += delta * a.pt;
-    }
+    var delta = (yesterdayDraft[a.id]||0) - (yesterdayOriginal[a.id]||0);
+    if (delta > 0) total += delta * a.pt;
   });
   return total;
 }
@@ -1135,21 +1118,13 @@ function confirmYesterdayLog(){
   var totalAdded = 0;
 
   state.actions.forEach(function(a){
-    if (a.once){
-      if (yesterdayDraft[a.id] && !rec[a.id]){
-        rec[a.id] = true;
-        totalAdded += a.pt;
-        state.log.unshift({ date:yd, type:"earn", detail:a.label+"（前日分）", pt:a.pt });
-      }
-    } else {
-      var before = rec[a.id] || 0;
-      var draftVal = yesterdayDraft[a.id] || 0;
-      var delta = draftVal - before;
-      if (delta > 0){
-        rec[a.id] = draftVal;
-        totalAdded += delta * a.pt;
-        state.log.unshift({ date:yd, type:"earn", detail:a.label+"（前日分"+(delta>1 ? " ×"+delta : "")+"）", pt:a.pt*delta });
-      }
+    var before = Number(rec[a.id]) || 0;
+    var draftVal = yesterdayDraft[a.id] || 0;
+    var delta = draftVal - before;
+    if (delta > 0){
+      rec[a.id] = draftVal;
+      totalAdded += delta * a.pt;
+      state.log.unshift({ date:yd, type:"earn", detail:a.label+"（前日分"+(delta>1 ? " ×"+delta : "")+"）", pt:a.pt*delta });
     }
   });
 
@@ -1182,7 +1157,7 @@ function confirmYesterdayLog(){
   if (unlockedAtari > 0) setTimeout(function(){ showFlash("㊗️ 当たり 確定！"); }, unlocked>0 ? 1800 : 900);
 }
 
-// ───────── 設定画面（やることリスト・報酬リストの編集） ─────────
+// ───────── 設定画面（点数リスト・報酬リストの編集） ─────────
 // state.actions/state.rewardsは開いている間ずっと編集反映されるわけではなく、
 // いったんドラフト配列にコピーして編集し、各セクションの保存ボタンでstateへコミットする。
 var actionsDraft = [];
@@ -1217,24 +1192,13 @@ function swapDraftItems(draftArr, itemA, itemB){
   var t = draftArr[ia]; draftArr[ia] = draftArr[ib]; draftArr[ib] = t;
 }
 
-// 「1日1回」と「複数回OK」が入り混じらないよう、設定画面では常にグループごとに分けて表示し、
-// 並び替えもグループ内でしかできないようにする（グループをまたぐ並び替えは意味を持たないため）。
+// メイン画面で上から順にやる並びと一致させたいという要望のため、1日1回／複数回OKで
+// セクションを分けず、1つのリストとして並び替えられるようにする（各行の「1日1回」
+// チェックボックスで種別は行ごとに分かる）。
 function renderActionsSettings(){
   var list = document.getElementById("actionsSettingsList");
   list.innerHTML = "";
-  var onceGroup = actionsDraft.filter(function(a){ return a.once; });
-  var repeatGroup = actionsDraft.filter(function(a){ return !a.once; });
-
-  var onceLabel = document.createElement("div");
-  onceLabel.className = "settingsGroupLabel"; onceLabel.textContent = "一日一回";
-  list.appendChild(onceLabel);
-  onceGroup.forEach(function(a, idx){ list.appendChild(buildActionSettingsRow(a, onceGroup, idx)); });
-
-  var repeatLabel = document.createElement("div");
-  repeatLabel.className = "settingsGroupLabel"; repeatLabel.textContent = "複数回OK";
-  list.appendChild(repeatLabel);
-  repeatGroup.forEach(function(a, idx){ list.appendChild(buildActionSettingsRow(a, repeatGroup, idx)); });
-
+  actionsDraft.forEach(function(a, idx){ list.appendChild(buildActionSettingsRow(a, actionsDraft, idx)); });
   updateActionsValidation();
 }
 
@@ -1289,14 +1253,20 @@ function buildActionSettingsRow(a, groupArr, idxInGroup){
   ptLabel.className = "settingsToggleLabel";
   ptLabel.appendChild(document.createTextNode("点数"));
   ptLabel.appendChild(ptInput);
-  var onceLabel = document.createElement("label");
-  onceLabel.className = "settingsToggleLabel";
-  var onceCheck = document.createElement("input");
-  onceCheck.type = "checkbox"; onceCheck.checked = !!a.once;
-  // トグルを変えるとグループが変わるので、その場で全体を再描画してグループ移動を反映する
-  onceCheck.onchange = function(){ a.once = onceCheck.checked; renderActionsSettings(); };
-  onceLabel.appendChild(onceCheck);
-  onceLabel.appendChild(document.createTextNode("1日1回"));
+  var limitLabel = document.createElement("label");
+  limitLabel.className = "settingsToggleLabel";
+  limitLabel.appendChild(document.createTextNode("1日"));
+  var limitInput = document.createElement("input");
+  limitInput.type = "number"; limitInput.min = "0"; limitInput.step = "1";
+  limitInput.className = "settingsNumInput"; limitInput.style.width = "3.4em";
+  limitInput.placeholder = "∞";
+  limitInput.value = a.dailyLimit || "";
+  limitInput.oninput = function(){
+    var v = parseInt(limitInput.value, 10);
+    a.dailyLimit = (v > 0) ? v : null; // 空欄・0以下は無制限（∞）扱い
+  };
+  limitLabel.appendChild(limitInput);
+  limitLabel.appendChild(document.createTextNode("回まで（空欄=∞）"));
   var upBtn = document.createElement("button");
   upBtn.className = "settingsReorderBtn"; upBtn.textContent = "▲"; upBtn.disabled = (idxInGroup===0);
   upBtn.onclick = function(){
@@ -1307,7 +1277,7 @@ function buildActionSettingsRow(a, groupArr, idxInGroup){
   downBtn.onclick = function(){
     if (idxInGroup<groupArr.length-1){ swapDraftItems(actionsDraft, a, groupArr[idxInGroup+1]); renderActionsSettings(); }
   };
-  line2.appendChild(onceLabel); line2.appendChild(catSelect); line2.appendChild(tagSelect); line2.appendChild(ptLabel);
+  line2.appendChild(limitLabel); line2.appendChild(catSelect); line2.appendChild(tagSelect); line2.appendChild(ptLabel);
   line2.appendChild(upBtn); line2.appendChild(downBtn);
 
   row.appendChild(line1); row.appendChild(line2);
@@ -1315,7 +1285,7 @@ function buildActionSettingsRow(a, groupArr, idxInGroup){
 }
 
 function addActionDraft(){
-  actionsDraft.push({ id:"custom"+Date.now().toString(36), emoji:"⭐", label:"", pt:1, once:false, category:CATEGORY_ORDER[0], tag:"" });
+  actionsDraft.push({ id:"custom"+Date.now().toString(36), emoji:"⭐", label:"", pt:1, dailyLimit:null, category:CATEGORY_ORDER[0], tag:"" });
   renderActionsSettings();
 }
 
@@ -1336,32 +1306,23 @@ function updateActionsValidation(){
 function saveActionsDraft(){
   updateActionsValidation();
   if (document.getElementById("saveActionsBtn").disabled) return;
-  // 保存時に「一日一回→複数回OK」の順で並べ直し、グループがバラバラにならないようにする
-  var onceGroup = actionsDraft.filter(function(a){ return a.once; });
-  var repeatGroup = actionsDraft.filter(function(a){ return !a.once; });
-  state.actions = cloneDefault(onceGroup.concat(repeatGroup));
+  // 並び順はactionsDraftの通り（1日1回／複数回OKで並べ直したりしない）そのまま保存する
+  state.actions = cloneDefault(actionsDraft);
   save(); render();
   flashButtonLabel(document.getElementById("saveActionsBtn"), "保存しました");
 }
 
+// メイン画面で上から順に表示する並びと一致させたいという要望のため、当日限り／持ち越し可で
+// セクションを分けず、1つのリストとして並び替えられるようにする（各行の「持ち越し可」
+// チェックボックスで種別は行ごとに分かる）。当たりだけは一番下に固定し、並び替え・削除・
+// 持ち越しフラグの変更はできない（盤面7-7専用マスのため）。
 function renderRewardsSettings(){
   var list = document.getElementById("rewardsSettingsList");
   list.innerHTML = "";
-  var todayGroup = rewardsDraft.filter(function(r){ return !r.carryover; });
-  var carryGroupAll = rewardsDraft.filter(function(r){ return r.carryover; });
-  var atari = carryGroupAll.filter(function(r){ return r.id === "atari"; })[0];
-  var carryGroup = carryGroupAll.filter(function(r){ return r.id !== "atari"; });
+  var atari = rewardsDraft.filter(function(r){ return r.id === "atari"; })[0];
+  var others = rewardsDraft.filter(function(r){ return r.id !== "atari"; });
 
-  var todayLabel = document.createElement("div");
-  todayLabel.className = "settingsGroupLabel"; todayLabel.textContent = "当日限り";
-  list.appendChild(todayLabel);
-  todayGroup.forEach(function(r, idx){ list.appendChild(buildRewardSettingsRow(r, todayGroup, idx)); });
-
-  var carryLabel = document.createElement("div");
-  carryLabel.className = "settingsGroupLabel"; carryLabel.textContent = "持ち越し可";
-  list.appendChild(carryLabel);
-  carryGroup.forEach(function(r, idx){ list.appendChild(buildRewardSettingsRow(r, carryGroup, idx)); });
-  // 当たりは持ち越し可グループの一番下に固定し、並び替え・削除・持ち越しフラグの変更はできない
+  others.forEach(function(r, idx){ list.appendChild(buildRewardSettingsRow(r, others, idx)); });
   if (atari) list.appendChild(buildRewardSettingsRow(atari, [atari], 0));
 
   updateRewardsValidation();
@@ -1475,11 +1436,11 @@ function saveRewardsDraft(){
   if (document.getElementById("saveRewardsBtn").disabled) return;
   // 二重防御：ここでも当たりの存在を確認してからコミットする
   if (!rewardsDraft.some(function(r){ return r.id === "atari"; })) return;
-  // 保存時に「当日限り→持ち越し可→当たり」の順で並べ直し、グループがバラバラにならないようにする
-  var todayGroup = rewardsDraft.filter(function(r){ return !r.carryover; });
-  var carryGroup = rewardsDraft.filter(function(r){ return r.carryover && r.id !== "atari"; });
+  // 並び順はrewardsDraftの通り（当日限り／持ち越し可で並べ直したりしない）そのまま保存する。
+  // 当たりだけは必ず一番下に来るよう固定する。
+  var others = rewardsDraft.filter(function(r){ return r.id !== "atari"; });
   var atariEntry = rewardsDraft.filter(function(r){ return r.id === "atari"; })[0];
-  var ordered = todayGroup.concat(carryGroup).concat(atariEntry ? [atariEntry] : []);
+  var ordered = others.concat(atariEntry ? [atariEntry] : []);
   var snapshot = cloneDefault(ordered);
   state.rewards = snapshot;
   reindexRewards();
@@ -1641,62 +1602,45 @@ function renderBoardTable(){
 function render(){
   document.getElementById("points").textContent = state.points;
 
-  // 加点ボタン（一日一回グループと、複数回OKグループに分けて表示）
+  // 加点ボタン。1日1回／複数回OKでセクションを分けず、state.actionsの並び順のまま
+  // 上から順に表示する（実際にやる順番と一致させたいという要望のため）。
+  // 1日1回の項目は、そのぶんの目印として点数の下に「今日の消化数/1」を小さく添える。
   var ag = document.getElementById("actionGrid");
   ag.innerHTML = "";
 
   function buildActionBtn(a){
     var td = todayStr();
-    var usedToday = a.once && state.daily[td] && state.daily[td][a.id];
+    var count = dailyCount_(td, a.id);
+    var atCap = a.dailyLimit && count >= a.dailyLimit;
     var btn = document.createElement("button");
     btn.id = "act_" + a.id;
-    btn.className = "actionBtn" + (usedToday ? " usedOnce" : "");
-    btn.disabled = !!usedToday;
+    btn.className = "actionBtn" + (atCap ? " capped" : "");
+    btn.disabled = !!atCap;
 
     var emojiSpan = document.createElement("span");
     emojiSpan.className = "actionEmoji"; emojiSpan.textContent = a.emoji;
     var labelSpan = document.createElement("span");
     labelSpan.className = "actionLabel"; labelSpan.textContent = a.label;
-    var ptSpan = document.createElement("span");
-    ptSpan.className = "actionPt"; ptSpan.textContent = "+"+a.pt;
     btn.appendChild(emojiSpan); btn.appendChild(labelSpan);
     var tagPill = buildTagPill(a.tag);
     if (tagPill) btn.appendChild(tagPill);
 
-    // 複数回押せるボタンは、当日の押下回数をドットで表示
-    if (!a.once){
-      var n = (state.daily[td] && state.daily[td][a.id]) || 0;
-      if (n > 0){
-        var dotRow = document.createElement("span");
-        dotRow.className = "dotRow";
-        for (var i=0; i<n; i++){
-          // 5個ごとに区切りの間隔を空ける（正の字と同じ発想）
-          var dot = document.createElement("span");
-          dot.className = "dot" + ((i>0 && i%5===0) ? " dotGap" : "");
-          dotRow.appendChild(dot);
-        }
-        labelSpan.appendChild(dotRow);
-      }
-    }
-
-    btn.appendChild(ptSpan);
+    var ptStack = document.createElement("span");
+    ptStack.className = "pointStack";
+    var ptSpan = document.createElement("span");
+    ptSpan.className = "actionPt"; ptSpan.textContent = "+"+a.pt;
+    ptStack.appendChild(ptSpan);
+    // 今日の消化数を「n/上限」（上限なしは∞）で表示する
+    var countHint = document.createElement("span");
+    countHint.className = "miniHint";
+    countHint.textContent = count + "/" + (a.dailyLimit || "∞");
+    ptStack.appendChild(countHint);
+    btn.appendChild(ptStack);
     btn.onclick = function(){ addPoint(a); };
     return btn;
   }
 
-  var onceBox = document.createElement("div");
-  onceBox.className = "todayBox";
-  var onceLabel = document.createElement("div");
-  onceLabel.className = "todayBoxLabel";
-  onceLabel.textContent = "一日一回";
-  onceBox.appendChild(onceLabel);
-  var onceInner = document.createElement("div");
-  onceInner.className = "todayBoxInner";
-  state.actions.filter(function(a){ return a.once; }).forEach(function(a){ onceInner.appendChild(buildActionBtn(a)); });
-  onceBox.appendChild(onceInner);
-  ag.appendChild(onceBox);
-
-  state.actions.filter(function(a){ return !a.once; }).forEach(function(a){ ag.appendChild(buildActionBtn(a)); });
+  state.actions.forEach(function(a){ ag.appendChild(buildActionBtn(a)); });
 
   // ロールボタン
   var rb = document.getElementById("rollBtn");
@@ -1708,7 +1652,7 @@ function render(){
   var mb = document.getElementById("manualBtn");
   if (mb){ mb.disabled = (state.points < COST); }
 
-  // ストック（当日限りグループと持ち越し可グループに分けて表示）
+  // ストック
   var sl = document.getElementById("stockList");
   sl.innerHTML = "";
 
@@ -1726,12 +1670,21 @@ function render(){
       tag.className = "specialTag"; tag.textContent = ((state.earnedTotal||0) % 70) + "/70";
       nameSpan.appendChild(tag);
     }
-    var countSpan = document.createElement("span");
-    countSpan.className = "stockCount"; countSpan.textContent = "×"+n;
     row.appendChild(emojiSpan); row.appendChild(nameSpan);
     var tagPill = buildTagPill(r.tag);
     if (tagPill) row.appendChild(tagPill);
-    row.appendChild(countSpan);
+    var countStack = document.createElement("span");
+    countStack.className = "pointStack";
+    var countSpan = document.createElement("span");
+    countSpan.className = "stockCount"; countSpan.textContent = "×"+n;
+    countStack.appendChild(countSpan);
+    if (!r.carryover){
+      var todayHint = document.createElement("span");
+      todayHint.className = "miniHint";
+      todayHint.textContent = "当日のみ";
+      countStack.appendChild(todayHint);
+    }
+    row.appendChild(countStack);
     var ub = document.createElement("button");
     ub.className = "useBtn";
     ub.textContent = (rk === "atari") ? "交換する" : "使う";
@@ -1741,25 +1694,9 @@ function render(){
     return row;
   }
 
-  var todayGroupKeys = state.rewards.filter(function(r){ return !r.carryover; }).map(function(r){ return r.id; });
-  var carryGroupKeys = state.rewards.filter(function(r){ return r.carryover; }).map(function(r){ return r.id; });
-
-  var todayBox = document.createElement("div");
-  todayBox.className = "todayBox";
-  var todayLabel = document.createElement("div");
-  todayLabel.className = "todayBoxLabel";
-  todayLabel.textContent = "当日中";
-  todayBox.appendChild(todayLabel);
-  var todayInner = document.createElement("div");
-  todayInner.className = "todayBoxInner";
-  todayGroupKeys.forEach(function(rk){ todayInner.appendChild(buildRow(rk)); });
-  todayBox.appendChild(todayInner);
-  sl.appendChild(todayBox);
-
-  var carryWrap = document.createElement("div");
-  carryWrap.className = "carryWrap";
-  carryGroupKeys.forEach(function(rk){ carryWrap.appendChild(buildRow(rk)); });
-  sl.appendChild(carryWrap);
+  // 当日限り／持ち越し可でセクションを分けず、state.rewardsの並び順のまま上から表示する。
+  // 当日限りの項目だけ、ストック数の下に「当日」の小さな目印を添える。
+  state.rewards.forEach(function(r){ sl.appendChild(buildRow(r.id)); });
 
   // 特別枠：10点ごとに解放される海野さんセッション音声（一番下）
   var mn = state.miyazaki || 0;
