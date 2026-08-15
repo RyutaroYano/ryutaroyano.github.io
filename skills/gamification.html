@@ -52,25 +52,21 @@
     60% { opacity:1; transform:translateY(-90%) scale(1); }
     100% { opacity:0; transform:translateY(-140%) scale(1); }
   }
-  .dotRow { position:absolute; left:50px; bottom:6px; display:flex; align-items:center; gap:3px; pointer-events:none; }
-  .dot { width:6px; height:6px; border-radius:50%; background:#e8562f; display:inline-block; }
-  .dot.dotGap { margin-left:5px; }
   .actionBtn:active { transform:scale(0.98); }
-  .actionBtn.usedOnce { background:#eee; border-color:#ddd; color:#aaa; cursor:default; }
-  .actionBtn.usedOnce:active { transform:none; }
-  .actionBtn.usedOnce .actionEmoji { filter:grayscale(1); opacity:.6; }
-  .actionBtn.usedOnce .actionPt { color:#bbb; }
+  .actionBtn.capped { background:#eee; border-color:#ddd; color:#aaa; cursor:default; }
+  .actionBtn.capped:active { transform:none; }
+  .actionBtn.capped .actionEmoji { filter:grayscale(1); opacity:.6; }
+  .actionBtn.capped .actionPt { color:#bbb; }
   .actionEmoji { font-size:22px; flex-shrink:0; width:26px; text-align:center; }
   .actionLabel { flex:1; }
   .actionPt { font-weight:700; color:#5a5a8c; font-size:16px; min-width:30px; text-align:right; }
   .elementTag { flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; line-height:1; padding:3px 6px; border-radius:8px; border:1.5px solid; margin:0 3px 0 8px; }
   .pointStack { display:flex; flex-direction:column; align-items:flex-end; flex-shrink:0; }
   .miniHint { font-size:9.5px; color:#aaa; font-weight:700; line-height:1.4; }
-  .actionBtn.usedOnce .miniHint { color:#bbb; }
+  .actionBtn.capped .miniHint { color:#bbb; }
   .yesterdayBtn { flex-shrink:0; margin-bottom:10px; background:#fff; border:1.5px solid #ddd; color:#888; border-radius:8px; padding:4px 10px; font-size:11.5px; font-weight:700; cursor:pointer; }
   .yesterdayBtn:active { background:#f7f7f8; }
   .yesterdayStepVal { min-width:22px; text-align:center; font-weight:700; font-size:14px; color:#3a3a5c; }
-  .yesterdayLockedTag { font-size:10px; color:#aaa; margin-left:6px; }
   .yesterdayFloorNote { font-size:11px; color:#aaa; }
 
   .diceRow { display:flex; align-items:center; gap:12px; margin:6px 0 14px; height:76px; }
@@ -337,18 +333,19 @@ function cloneDefault(x){ return JSON.parse(JSON.stringify(x)); }
 // 竜太郎さん個人の行動リストは既にstate.actionsとして保存済みなので、ここは初めてこのアプリを
 // 開く人（配布先など）向けの初期値。サンプルとして具体的な項目を用意しておき、
 // 設定画面から自由に編集・削除・追加してもらう形にする。
+// dailyLimit: 1日に何回までゲットできるか（正の整数）。nullは無制限（∞）。
 var DEFAULT_ACTIONS = [
-  { id:"sleep",     emoji:"😴", label:"前日23時までに就寝 or 7.5時間以上寝た", pt:1, once:true, category:"土台", tag:"" },
-  { id:"morning",   emoji:"🌅", label:"朝のルーティンを完遂した", pt:1, once:true, category:"土台", tag:"" },
-  { id:"plan",      emoji:"🧠", label:"昨日の振り返りと今日の計画を立てた", pt:1, once:true, category:"土台", tag:"" },
-  { id:"stretch5",  emoji:"🧘", label:"ストレッチを5分やった", pt:1, once:true, category:"健康", tag:"" },
-  { id:"note5",     emoji:"📝", label:"note記事を5分書いた", pt:1, once:true, category:"スキル", tag:"" },
-  { id:"yt5",       emoji:"🎬", label:"動画・音声編集を5分やった", pt:1, once:true, category:"スキル", tag:"" },
-  { id:"walk8888",  emoji:"🚶", label:"8888歩以上歩いた", pt:1, once:true, category:"健康", tag:"" },
-  { id:"contact",   emoji:"📧", label:"関係者に連絡を1件送った", pt:1, once:false, category:"人間関係", tag:"" },
-  { id:"canele",    emoji:"🥐", label:"カヌレの仕事を33分33秒やった", pt:1, once:false, category:"経済", tag:"" },
-  { id:"note33",    emoji:"📝", label:"note記事を33分33秒書いた", pt:1, once:false, category:"スキル", tag:"" },
-  { id:"yt33",      emoji:"🎬", label:"動画・音声編集を33分33秒やった", pt:1, once:false, category:"スキル", tag:"" },
+  { id:"sleep",     emoji:"😴", label:"前日23時までに就寝 or 7.5時間以上寝た", pt:1, dailyLimit:1, category:"土台", tag:"" },
+  { id:"morning",   emoji:"🌅", label:"朝のルーティンを完遂した", pt:1, dailyLimit:1, category:"土台", tag:"" },
+  { id:"plan",      emoji:"🧠", label:"昨日の振り返りと今日の計画を立てた", pt:1, dailyLimit:1, category:"土台", tag:"" },
+  { id:"stretch5",  emoji:"🧘", label:"ストレッチを5分やった", pt:1, dailyLimit:1, category:"健康", tag:"" },
+  { id:"note5",     emoji:"📝", label:"note記事を5分書いた", pt:1, dailyLimit:1, category:"スキル", tag:"" },
+  { id:"yt5",       emoji:"🎬", label:"動画・音声編集を5分やった", pt:1, dailyLimit:1, category:"スキル", tag:"" },
+  { id:"walk8888",  emoji:"🚶", label:"8888歩以上歩いた", pt:1, dailyLimit:1, category:"健康", tag:"" },
+  { id:"contact",   emoji:"📧", label:"関係者に連絡を1件送った", pt:1, dailyLimit:null, category:"人間関係", tag:"" },
+  { id:"canele",    emoji:"🥐", label:"カヌレの仕事を33分33秒やった", pt:1, dailyLimit:null, category:"経済", tag:"" },
+  { id:"note33",    emoji:"📝", label:"note記事を33分33秒書いた", pt:1, dailyLimit:null, category:"スキル", tag:"" },
+  { id:"yt33",      emoji:"🎬", label:"動画・音声編集を33分33秒やった", pt:1, dailyLimit:null, category:"スキル", tag:"" },
 ];
 
 // スプレッドシートの列順はここで決める（カテゴリごとにグループ化）。
@@ -547,9 +544,21 @@ function gasUrl(){
 // 読み込んだ生データ(s)をstateへ適用する共通処理。
 // actions/rewards/boardが無い（=まだ設定画面を使ったことがない）場合はDEFAULT_*から補う。
 // stockのデフォルトはrewardsが確定した後でないと組み立てられないので、この順番を守ること。
+// 旧スキーマ（once:true/false）で保存された項目を、新スキーマ（dailyLimit:数値/null）へ
+// その場で変換する。once:trueだった項目は「1日1回まで」＝dailyLimit:1として引き継ぎ、
+// once:falseだった項目は元々無制限だったのでdailyLimit:null（∞）のまま維持する。
+function migrateActionSchema_(a){
+  if (a.dailyLimit === undefined){
+    a.dailyLimit = a.once ? 1 : null;
+  }
+  delete a.once;
+  return a;
+}
+
 function applyLoadedState(s){
   state.points = s.points||0;
   state.actions = (s.actions && s.actions.length) ? s.actions : cloneDefault(DEFAULT_ACTIONS);
+  state.actions.forEach(migrateActionSchema_);
   state.rewards = (s.rewards && s.rewards.length) ? s.rewards : cloneDefault(DEFAULT_REWARDS);
   reindexRewards();
   state.board = (s.board && Array.isArray(s.board) && s.board.length === 8) ? s.board : cloneDefault(DEFAULT_BOARD);
@@ -681,12 +690,7 @@ function buildDailyLogPayload(dateStr){
   var counts = {};
   var totalPoints = 0;
   state.actions.forEach(function(a){
-    var n;
-    if (a.once){
-      n = rec[a.id] ? 1 : 0;
-    } else {
-      n = rec[a.id] || 0;
-    }
+    var n = Number(rec[a.id]) || 0;
     counts[a.id] = n;
     totalPoints += n * a.pt;
   });
@@ -770,19 +774,22 @@ function flashOnButton(btn, msg){
   setTimeout(function(){ if (f.parentNode) f.parentNode.removeChild(f); }, 900);
 }
 
+// 指定日・指定actionの記録済み回数を数値で返す（未記録なら0）。
+// 旧スキーマ時代にonce項目へtrueを直接保存していた古い記録もNumber()で1として扱える。
+function dailyCount_(dateStr, actionId){
+  var rec = state.daily[dateStr];
+  return (rec && Number(rec[actionId])) || 0;
+}
+
 function addPoint(a, btn){
   // 記録ボタンを押すたびに、日をまたいでいないか念のため確認しておく
   settlePastDays();
   var td = todayStr();
   if (!state.daily[td]) state.daily[td] = {};
-  // 5分系（once）は当日1回だけ。押下済みなら無視
-  if (a.once){
-    if (state.daily[td][a.id]) return;
-    state.daily[td][a.id] = true;
-  } else {
-    // 複数回押せるものは当日の回数をカウント
-    state.daily[td][a.id] = (state.daily[td][a.id] || 0) + 1;
-  }
+  var count = dailyCount_(td, a.id);
+  // dailyLimitが設定されていて、既に上限に達していたら無視（未設定＝nullは無制限）
+  if (a.dailyLimit && count >= a.dailyLimit) return;
+  state.daily[td][a.id] = count + 1;
   state.points += a.pt;
   state.log.unshift({ date:todayStr(), type:"earn", detail:a.label, pt:a.pt });
   // 累積獲得点を進め、10点をまたぐごとに海野さん音声を1回解放
@@ -1000,8 +1007,12 @@ var yesterdayDraft = {};
 function openYesterdayModal(){
   settlePastDays(); // 他のエントリポイントと同じく、開く前に念のため日跨ぎを確認しておく
   var rec = state.daily[yesterdayStr()] || {};
-  yesterdayOriginal = cloneDefault(rec);
-  yesterdayDraft = cloneDefault(rec);
+  // 旧スキーマ時代の記録（once項目にtrueを直接保存していたもの）が混じっていても、
+  // ここで数値に正規化しておく（表示・計算はすべて数値前提のため）
+  var normalizedRec = {};
+  Object.keys(rec).forEach(function(id){ normalizedRec[id] = Number(rec[id]) || 0; });
+  yesterdayOriginal = cloneDefault(normalizedRec);
+  yesterdayDraft = cloneDefault(normalizedRec);
   document.getElementById("yesterdaySub").textContent =
     "対象日：" + yesterdayStr() + "（昨日）。すでに記録済みの項目は減らせません。";
   renderYesterdayChecklist();
@@ -1040,67 +1051,46 @@ function renderYesterdayChecklist(){
     var line2 = document.createElement("div");
     line2.className = "settingsRowLine2";
 
-    if (a.once){
-      var already = !!yesterdayOriginal[a.id];
-      var checkLabel = document.createElement("label");
-      checkLabel.className = "settingsToggleLabel";
-      var check = document.createElement("input");
-      check.type = "checkbox";
-      check.checked = !!yesterdayDraft[a.id];
-      check.disabled = already;
-      check.onchange = function(){ toggleYesterdayOnce(a.id); };
-      checkLabel.appendChild(check);
-      checkLabel.appendChild(document.createTextNode(already ? "記録済み" : "追加する"));
-      line2.appendChild(checkLabel);
-      if (already){
-        var tag = document.createElement("span");
-        tag.className = "yesterdayLockedTag";
-        tag.textContent = "変更不可";
-        line2.appendChild(tag);
-      }
-    } else {
-      var floor = yesterdayOriginal[a.id] || 0;
-      var current = yesterdayDraft[a.id] || 0;
-      var floorNote = document.createElement("span");
-      floorNote.className = "yesterdayFloorNote";
-      floorNote.textContent = "記録済み: " + floor + "回";
-      var minusBtn = document.createElement("button");
-      minusBtn.className = "settingsReorderBtn";
-      minusBtn.textContent = "－";
-      minusBtn.disabled = (current <= floor);
-      minusBtn.onclick = function(){ stepYesterdayRepeat(a.id, -1); };
-      var valSpan = document.createElement("span");
-      valSpan.className = "yesterdayStepVal";
-      valSpan.textContent = current;
-      var plusBtn = document.createElement("button");
-      plusBtn.className = "settingsReorderBtn";
-      plusBtn.textContent = "＋";
-      plusBtn.onclick = function(){ stepYesterdayRepeat(a.id, 1); };
-      line2.appendChild(floorNote);
-      line2.appendChild(minusBtn);
-      line2.appendChild(valSpan);
-      line2.appendChild(plusBtn);
-    }
+    // 記録済みの数より下げることはできず（罰則なし設計）、dailyLimitが設定されていれば
+    // それ以上は追加できない（メイン画面の上限と揃える）
+    var floor = yesterdayOriginal[a.id] || 0;
+    var current = yesterdayDraft[a.id] || 0;
+    var floorNote = document.createElement("span");
+    floorNote.className = "yesterdayFloorNote";
+    floorNote.textContent = "記録済み: " + floor + "回" + (a.dailyLimit ? "（上限"+a.dailyLimit+"）" : "");
+    var minusBtn = document.createElement("button");
+    minusBtn.className = "settingsReorderBtn";
+    minusBtn.textContent = "－";
+    minusBtn.disabled = (current <= floor);
+    minusBtn.onclick = function(){ stepYesterdayRepeat(a.id, -1); };
+    var valSpan = document.createElement("span");
+    valSpan.className = "yesterdayStepVal";
+    valSpan.textContent = current;
+    var plusBtn = document.createElement("button");
+    plusBtn.className = "settingsReorderBtn";
+    plusBtn.textContent = "＋";
+    plusBtn.disabled = !!(a.dailyLimit && current >= a.dailyLimit);
+    plusBtn.onclick = function(){ stepYesterdayRepeat(a.id, 1); };
+    line2.appendChild(floorNote);
+    line2.appendChild(minusBtn);
+    line2.appendChild(valSpan);
+    line2.appendChild(plusBtn);
 
     row.appendChild(line1); row.appendChild(line2);
     return row;
   }
 
-  state.actions.filter(function(a){ return a.once; }).forEach(function(a){ list.appendChild(buildRow(a)); });
-  state.actions.filter(function(a){ return !a.once; }).forEach(function(a){ list.appendChild(buildRow(a)); });
+  state.actions.forEach(function(a){ list.appendChild(buildRow(a)); });
 
   updateYesterdaySummary();
 }
 
-function toggleYesterdayOnce(id){
-  yesterdayDraft[id] = !yesterdayDraft[id];
-  renderYesterdayChecklist();
-}
-
 function stepYesterdayRepeat(id, delta){
+  var a = state.actions.filter(function(x){ return x.id === id; })[0];
   var floor = yesterdayOriginal[id] || 0;
   var next = (yesterdayDraft[id] || 0) + delta;
   if (next < floor) next = floor; // 記録済みの数より下げることはできない
+  if (a && a.dailyLimit && next > a.dailyLimit) next = a.dailyLimit; // 1日の上限は超えられない
   yesterdayDraft[id] = next;
   renderYesterdayChecklist();
 }
@@ -1108,12 +1098,8 @@ function stepYesterdayRepeat(id, delta){
 function computeYesterdayAdded(){
   var total = 0;
   state.actions.forEach(function(a){
-    if (a.once){
-      if (yesterdayDraft[a.id] && !yesterdayOriginal[a.id]) total += a.pt;
-    } else {
-      var delta = (yesterdayDraft[a.id]||0) - (yesterdayOriginal[a.id]||0);
-      if (delta > 0) total += delta * a.pt;
-    }
+    var delta = (yesterdayDraft[a.id]||0) - (yesterdayOriginal[a.id]||0);
+    if (delta > 0) total += delta * a.pt;
   });
   return total;
 }
@@ -1132,21 +1118,13 @@ function confirmYesterdayLog(){
   var totalAdded = 0;
 
   state.actions.forEach(function(a){
-    if (a.once){
-      if (yesterdayDraft[a.id] && !rec[a.id]){
-        rec[a.id] = true;
-        totalAdded += a.pt;
-        state.log.unshift({ date:yd, type:"earn", detail:a.label+"（前日分）", pt:a.pt });
-      }
-    } else {
-      var before = rec[a.id] || 0;
-      var draftVal = yesterdayDraft[a.id] || 0;
-      var delta = draftVal - before;
-      if (delta > 0){
-        rec[a.id] = draftVal;
-        totalAdded += delta * a.pt;
-        state.log.unshift({ date:yd, type:"earn", detail:a.label+"（前日分"+(delta>1 ? " ×"+delta : "")+"）", pt:a.pt*delta });
-      }
+    var before = Number(rec[a.id]) || 0;
+    var draftVal = yesterdayDraft[a.id] || 0;
+    var delta = draftVal - before;
+    if (delta > 0){
+      rec[a.id] = draftVal;
+      totalAdded += delta * a.pt;
+      state.log.unshift({ date:yd, type:"earn", detail:a.label+"（前日分"+(delta>1 ? " ×"+delta : "")+"）", pt:a.pt*delta });
     }
   });
 
@@ -1275,14 +1253,20 @@ function buildActionSettingsRow(a, groupArr, idxInGroup){
   ptLabel.className = "settingsToggleLabel";
   ptLabel.appendChild(document.createTextNode("点数"));
   ptLabel.appendChild(ptInput);
-  var onceLabel = document.createElement("label");
-  onceLabel.className = "settingsToggleLabel";
-  var onceCheck = document.createElement("input");
-  onceCheck.type = "checkbox"; onceCheck.checked = !!a.once;
-  // トグルを変えるとグループが変わるので、その場で全体を再描画してグループ移動を反映する
-  onceCheck.onchange = function(){ a.once = onceCheck.checked; renderActionsSettings(); };
-  onceLabel.appendChild(onceCheck);
-  onceLabel.appendChild(document.createTextNode("1日1回"));
+  var limitLabel = document.createElement("label");
+  limitLabel.className = "settingsToggleLabel";
+  limitLabel.appendChild(document.createTextNode("1日"));
+  var limitInput = document.createElement("input");
+  limitInput.type = "number"; limitInput.min = "0"; limitInput.step = "1";
+  limitInput.className = "settingsNumInput"; limitInput.style.width = "3.4em";
+  limitInput.placeholder = "∞";
+  limitInput.value = a.dailyLimit || "";
+  limitInput.oninput = function(){
+    var v = parseInt(limitInput.value, 10);
+    a.dailyLimit = (v > 0) ? v : null; // 空欄・0以下は無制限（∞）扱い
+  };
+  limitLabel.appendChild(limitInput);
+  limitLabel.appendChild(document.createTextNode("回まで（空欄=∞）"));
   var upBtn = document.createElement("button");
   upBtn.className = "settingsReorderBtn"; upBtn.textContent = "▲"; upBtn.disabled = (idxInGroup===0);
   upBtn.onclick = function(){
@@ -1293,7 +1277,7 @@ function buildActionSettingsRow(a, groupArr, idxInGroup){
   downBtn.onclick = function(){
     if (idxInGroup<groupArr.length-1){ swapDraftItems(actionsDraft, a, groupArr[idxInGroup+1]); renderActionsSettings(); }
   };
-  line2.appendChild(onceLabel); line2.appendChild(catSelect); line2.appendChild(tagSelect); line2.appendChild(ptLabel);
+  line2.appendChild(limitLabel); line2.appendChild(catSelect); line2.appendChild(tagSelect); line2.appendChild(ptLabel);
   line2.appendChild(upBtn); line2.appendChild(downBtn);
 
   row.appendChild(line1); row.appendChild(line2);
@@ -1301,7 +1285,7 @@ function buildActionSettingsRow(a, groupArr, idxInGroup){
 }
 
 function addActionDraft(){
-  actionsDraft.push({ id:"custom"+Date.now().toString(36), emoji:"⭐", label:"", pt:1, once:false, category:CATEGORY_ORDER[0], tag:"" });
+  actionsDraft.push({ id:"custom"+Date.now().toString(36), emoji:"⭐", label:"", pt:1, dailyLimit:null, category:CATEGORY_ORDER[0], tag:"" });
   renderActionsSettings();
 }
 
@@ -1626,11 +1610,12 @@ function render(){
 
   function buildActionBtn(a){
     var td = todayStr();
-    var usedToday = a.once && state.daily[td] && state.daily[td][a.id];
+    var count = dailyCount_(td, a.id);
+    var atCap = a.dailyLimit && count >= a.dailyLimit;
     var btn = document.createElement("button");
     btn.id = "act_" + a.id;
-    btn.className = "actionBtn" + (usedToday ? " usedOnce" : "");
-    btn.disabled = !!usedToday;
+    btn.className = "actionBtn" + (atCap ? " capped" : "");
+    btn.disabled = !!atCap;
 
     var emojiSpan = document.createElement("span");
     emojiSpan.className = "actionEmoji"; emojiSpan.textContent = a.emoji;
@@ -1640,33 +1625,16 @@ function render(){
     var tagPill = buildTagPill(a.tag);
     if (tagPill) btn.appendChild(tagPill);
 
-    // 複数回押せるボタンは、当日の押下回数をドットで表示
-    if (!a.once){
-      var n = (state.daily[td] && state.daily[td][a.id]) || 0;
-      if (n > 0){
-        var dotRow = document.createElement("span");
-        dotRow.className = "dotRow";
-        for (var i=0; i<n; i++){
-          // 5個ごとに区切りの間隔を空ける（正の字と同じ発想）
-          var dot = document.createElement("span");
-          dot.className = "dot" + ((i>0 && i%5===0) ? " dotGap" : "");
-          dotRow.appendChild(dot);
-        }
-        labelSpan.appendChild(dotRow);
-      }
-    }
-
     var ptStack = document.createElement("span");
     ptStack.className = "pointStack";
     var ptSpan = document.createElement("span");
     ptSpan.className = "actionPt"; ptSpan.textContent = "+"+a.pt;
     ptStack.appendChild(ptSpan);
-    if (a.once){
-      var onceHint = document.createElement("span");
-      onceHint.className = "miniHint";
-      onceHint.textContent = (usedToday ? "1" : "0") + "/1";
-      ptStack.appendChild(onceHint);
-    }
+    // 今日の消化数を「n/上限」（上限なしは∞）で表示する
+    var countHint = document.createElement("span");
+    countHint.className = "miniHint";
+    countHint.textContent = count + "/" + (a.dailyLimit || "∞");
+    ptStack.appendChild(countHint);
     btn.appendChild(ptStack);
     btn.onclick = function(){ addPoint(a); };
     return btn;
@@ -1713,7 +1681,7 @@ function render(){
     if (!r.carryover){
       var todayHint = document.createElement("span");
       todayHint.className = "miniHint";
-      todayHint.textContent = "当日";
+      todayHint.textContent = "当日のみ";
       countStack.appendChild(todayHint);
     }
     row.appendChild(countStack);
