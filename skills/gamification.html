@@ -152,8 +152,6 @@
   .settingsDeleteBtn:disabled { opacity:.2; cursor:default; }
   .settingsCountLabel { font-size:12px; color:#888; }
   .settingsAddBtn { display:block; width:100%; margin-top:8px; background:#eef2fb; border:1.5px dashed #b9c6e8; color:#3a3a5c; border-radius:10px; padding:10px 0; font-size:13px; font-weight:700; cursor:pointer; }
-  .settingsSaveBtn { display:block; width:100%; margin-top:10px; background:#3a3a5c; color:#fff; border:none; border-radius:10px; padding:11px 0; font-size:14px; font-weight:700; cursor:pointer; }
-  .settingsSaveBtn:disabled { background:#ccc; cursor:default; }
   .settingsValidation { font-size:12px; margin-top:8px; padding:8px 10px; border-radius:8px; background:#f4f4f7; color:#666; }
   .settingsValidation.ok { background:#e8f7ee; color:#2b7; }
   .settingsValidation.err { background:#fdf0ee; color:#c0503a; }
@@ -270,7 +268,6 @@
         <div class="settingsList" id="actionsSettingsList"></div>
         <button class="settingsAddBtn" id="addActionBtn">＋ やることを追加</button>
         <div class="settingsValidation" id="actionsValidation"></div>
-        <button class="settingsSaveBtn" id="saveActionsBtn">点数リストを保存</button>
       </div>
 
       <div class="settingsSection">
@@ -278,19 +275,18 @@
         <div class="settingsList" id="rewardsSettingsList"></div>
         <button class="settingsAddBtn" id="addRewardBtn">＋ 報酬を追加</button>
         <div class="settingsValidation" id="rewardsValidation"></div>
-        <button class="settingsSaveBtn" id="saveRewardsBtn">報酬リストを保存</button>
       </div>
 
       <div class="settingsSection">
         <div class="settingsSectionTitle">盤面編集</div>
-        <div class="modalSub">マスをタップすると、対称なマスとまとめて報酬を変更できます。新しく追加した報酬は、先に報酬リストを保存してからここで選べるようになります。</div>
+        <div class="modalSub">マスをタップすると、対称なマスとまとめて報酬を変更できます。新しく追加した報酬は、先に保存してからここで選べるようになります。</div>
         <div class="boardWrap"><table class="boardTable" id="boardEditTable"></table></div>
         <div class="boardCountList" id="boardEditorCounts"></div>
-        <button class="settingsSaveBtn" id="saveBoardBtn">盤面を保存</button>
       </div>
 
       <div class="modalBtnRow">
         <button class="modalClose" id="settingsClose">閉じる</button>
+        <button class="modalConfirm" id="saveSettingsBtn">保存</button>
       </div>
     </div>
   </div>
@@ -1289,27 +1285,23 @@ function addActionDraft(){
   renderActionsSettings();
 }
 
-function updateActionsValidation(){
-  var panel = document.getElementById("actionsValidation");
-  var saveBtn = document.getElementById("saveActionsBtn");
-  var hasBlank = actionsDraft.some(function(a){ return !(a.label||"").trim(); });
-  var hasAny = actionsDraft.length > 0;
-  if (!hasAny){
-    panel.textContent = "やることが1件もありません"; panel.className = "settingsValidation err"; saveBtn.disabled = true;
-  } else if (hasBlank){
-    panel.textContent = "内容が空のやることがあります"; panel.className = "settingsValidation err"; saveBtn.disabled = true;
-  } else {
-    panel.textContent = actionsDraft.length+"件（OK）"; panel.className = "settingsValidation ok"; saveBtn.disabled = false;
+// 内容が空でないか・1件以上あるかを検証する（実際の保存はsaveAllSettings()でまとめて行う）。
+function getActionsDraftValidation(){
+  if (actionsDraft.length === 0){
+    return { ok:false, message:"やることが1件もありません" };
   }
+  if (actionsDraft.some(function(a){ return !(a.label||"").trim(); })){
+    return { ok:false, message:"内容が空のやることがあります" };
+  }
+  return { ok:true, message:actionsDraft.length+"件（OK）" };
 }
 
-function saveActionsDraft(){
-  updateActionsValidation();
-  if (document.getElementById("saveActionsBtn").disabled) return;
-  // 並び順はactionsDraftの通り（1日1回／複数回OKで並べ直したりしない）そのまま保存する
-  state.actions = cloneDefault(actionsDraft);
-  save(); render();
-  flashButtonLabel(document.getElementById("saveActionsBtn"), "保存しました");
+function updateActionsValidation(){
+  var panel = document.getElementById("actionsValidation");
+  var result = getActionsDraftValidation();
+  panel.textContent = result.message;
+  panel.className = "settingsValidation " + (result.ok ? "ok" : "err");
+  updateSettingsSaveState();
 }
 
 // メイン画面で上から順に表示する並びと一致させたいという要望のため、当日限り／持ち越し可で
@@ -1369,7 +1361,7 @@ function buildRewardSettingsRow(r, groupArr, idxInGroup){
   // トグルを変えるとグループが変わるので、その場で全体を再描画してグループ移動を反映する
   carryCheck.onchange = function(){ if (isAtari) return; r.carryover = carryCheck.checked; renderRewardsSettings(); };
   carryLabel.appendChild(carryCheck);
-  carryLabel.appendChild(document.createTextNode("持ち越し可"));
+  carryLabel.appendChild(document.createTextNode("繰越"));
 
   var tagSelect = document.createElement("select");
   tagSelect.className = "settingsSelect";
@@ -1424,35 +1416,48 @@ function getRewardsDraftValidation(){
 
 function updateRewardsValidation(){
   var panel = document.getElementById("rewardsValidation");
-  var saveBtn = document.getElementById("saveRewardsBtn");
   var result = getRewardsDraftValidation();
   panel.textContent = result.message;
   panel.className = "settingsValidation " + (result.ok ? "ok" : "err");
-  saveBtn.disabled = !result.ok;
+  updateSettingsSaveState();
 }
 
-function saveRewardsDraft(){
-  updateRewardsValidation();
-  if (document.getElementById("saveRewardsBtn").disabled) return;
-  // 二重防御：ここでも当たりの存在を確認してからコミットする
-  if (!rewardsDraft.some(function(r){ return r.id === "atari"; })) return;
-  // 並び順はrewardsDraftの通り（当日限り／持ち越し可で並べ直したりしない）そのまま保存する。
-  // 当たりだけは必ず一番下に来るよう固定する。
+// やることリスト・報酬リスト・盤面編集の3つのドラフトを、設定画面下部の「保存」ボタン
+// 1つでまとめてstateへコミットする（以前は各セクションに個別の保存ボタンがあったが、
+// 保存ボタンは画面下に1つだけあればいいという要望のため統合した）。
+function updateSettingsSaveState(){
+  var btn = document.getElementById("saveSettingsBtn");
+  if (!btn) return;
+  btn.disabled = !(getActionsDraftValidation().ok && getRewardsDraftValidation().ok);
+}
+
+function saveAllSettings(){
+  updateSettingsSaveState();
+  if (document.getElementById("saveSettingsBtn").disabled) return;
+
+  // やることリスト：並び順はactionsDraftの通りそのまま保存する
+  state.actions = cloneDefault(actionsDraft);
+
+  // 報酬リスト：並び順はrewardsDraftの通り。当たりだけは必ず一番下に来るよう固定する
   var others = rewardsDraft.filter(function(r){ return r.id !== "atari"; });
   var atariEntry = rewardsDraft.filter(function(r){ return r.id === "atari"; })[0];
-  var ordered = others.concat(atariEntry ? [atariEntry] : []);
-  var snapshot = cloneDefault(ordered);
-  state.rewards = snapshot;
+  var rewardsSnapshot = cloneDefault(others.concat(atariEntry ? [atariEntry] : []));
+  state.rewards = rewardsSnapshot;
   reindexRewards();
   // 削除された報酬のstockを掃除し、新規報酬のstockを0で初期化する（盤面は触らない）
   var validIds = {};
-  snapshot.forEach(function(r){ validIds[r.id] = true; });
+  rewardsSnapshot.forEach(function(r){ validIds[r.id] = true; });
   Object.keys(state.stock).forEach(function(k){ if (!validIds[k]) delete state.stock[k]; });
-  snapshot.forEach(function(r){ if (!(r.id in state.stock)) state.stock[r.id] = 0; });
+  rewardsSnapshot.forEach(function(r){ if (!(r.id in state.stock)) state.stock[r.id] = 0; });
+
+  // 盤面
+  state.board = cloneDefault(boardDraft);
+
   save(); render();
-  renderBoardTable();  // 報酬名・絵文字の変更をメイン画面の盤面表示にも反映する
-  renderBoardEditor(); // 名前・絵文字の変更を盤面編集側の表示にも反映する
-  flashButtonLabel(document.getElementById("saveRewardsBtn"), "保存しました");
+  renderBoardTable();      // メイン画面の盤面表示に反映する（render()はboardTableを触らないため必須）
+  renderRewardsSettings(); // 削除ボタンのガード状態・盤面カウント表示を最新化
+  renderBoardEditor();     // 報酬名・絵文字の変更を盤面編集側の表示にも反映する
+  flashButtonLabel(document.getElementById("saveSettingsBtn"), "保存しました");
 }
 
 // 盤面編集：マス(a,b)をタップすると対称マス(b,a)もまとめて選んだ報酬に変更する。
@@ -1552,14 +1557,6 @@ function pickBoardCellReward(rk){
 
 function closeBoardCellPick(){
   document.getElementById("boardCellPickModal").classList.remove("show");
-}
-
-function saveBoardDraft(){
-  state.board = cloneDefault(boardDraft);
-  save(); render();
-  renderBoardTable();     // メイン画面の盤面表示に反映する（render()はboardTableを触らないため必須）
-  renderRewardsSettings(); // 削除ボタンのガード状態・盤面カウント表示を最新化
-  flashButtonLabel(document.getElementById("saveBoardBtn"), "保存しました");
 }
 
 // ───────── 描画 ─────────
@@ -1787,10 +1784,8 @@ document.getElementById("settingsModal").onclick = function(e){
   if (e.target === document.getElementById("settingsModal")) closeSettings();
 };
 document.getElementById("addActionBtn").onclick = function(e){ e.stopPropagation(); addActionDraft(); };
-document.getElementById("saveActionsBtn").onclick = function(e){ e.stopPropagation(); saveActionsDraft(); };
 document.getElementById("addRewardBtn").onclick = function(e){ e.stopPropagation(); addRewardDraft(); };
-document.getElementById("saveRewardsBtn").onclick = function(e){ e.stopPropagation(); saveRewardsDraft(); };
-document.getElementById("saveBoardBtn").onclick = function(e){ e.stopPropagation(); saveBoardDraft(); };
+document.getElementById("saveSettingsBtn").onclick = function(e){ e.stopPropagation(); saveAllSettings(); };
 
 document.getElementById("boardCellPickClose").onclick = function(e){ e.stopPropagation(); closeBoardCellPick(); };
 document.querySelector("#boardCellPickModal .modalCard").onclick = function(e){ e.stopPropagation(); };
