@@ -263,14 +263,14 @@
   <div class="modalOverlay fullscreen" id="settingsModal">
     <div class="modalCard">
       <div class="modalTitle">⚙️ 設定</div>
-      <div class="modalSub">やることリストと報酬リストを編集できます。</div>
+      <div class="modalSub">点数リストと報酬リストを編集できます。</div>
 
       <div class="settingsSection">
-        <div class="settingsSectionTitle">やることリスト</div>
+        <div class="settingsSectionTitle">点数リスト</div>
         <div class="settingsList" id="actionsSettingsList"></div>
         <button class="settingsAddBtn" id="addActionBtn">＋ やることを追加</button>
         <div class="settingsValidation" id="actionsValidation"></div>
-        <button class="settingsSaveBtn" id="saveActionsBtn">やることリストを保存</button>
+        <button class="settingsSaveBtn" id="saveActionsBtn">点数リストを保存</button>
       </div>
 
       <div class="settingsSection">
@@ -376,8 +376,8 @@ function dailyLogColumns(){
   return cols;
 }
 
-// ───────── 火地風水タグ（やることリスト・報酬リスト共通） ─────────
-// 各項目（action/reward）は tag:"" (タグなし) か、下記キーのいずれかを持つ。
+// ───────── 火地風水タグ（点数リスト・報酬リスト共通） ─────────
+// 各項目（action/reward）は tag:"" (元素なし) か、下記キーのいずれかを持つ。
 // α＝濃い色／β＝薄い色。元素に当てはまらないもの（移動・睡眠など）はnoneのグレータグを使う。
 var TAG_DEFS = {
   "none":        { emoji:"⚪", variantChar:"",  label:"元素外", bg:"#9E9E9E", border:"#9E9E9E", text:"#FFFFFF" },
@@ -392,10 +392,10 @@ var TAG_DEFS = {
 };
 var TAG_SELECT_OPTIONS = ["", "none", "fire-alpha","fire-beta","earth-alpha","earth-beta","wind-alpha","wind-beta","water-alpha","water-beta"];
 function tagSelectLabel(key){
-  if (!key || !TAG_DEFS[key]) return "－ タグなし";
+  if (!key || !TAG_DEFS[key]) return "－ 元素なし";
   return TAG_DEFS[key].emoji + " " + TAG_DEFS[key].label;
 }
-// 一覧画面（やることボタン・報酬ストック）に貼る小さな色付きタグを作る。タグなしならnullを返す。
+// 一覧画面（やることボタン・報酬ストック）に貼る小さな色付きタグを作る。元素なしならnullを返す。
 function buildTagPill(tagKey){
   var def = TAG_DEFS[tagKey];
   if (!def) return null;
@@ -1157,7 +1157,7 @@ function confirmYesterdayLog(){
   if (unlockedAtari > 0) setTimeout(function(){ showFlash("㊗️ 当たり 確定！"); }, unlocked>0 ? 1800 : 900);
 }
 
-// ───────── 設定画面（やることリスト・報酬リストの編集） ─────────
+// ───────── 設定画面（点数リスト・報酬リストの編集） ─────────
 // state.actions/state.rewardsは開いている間ずっと編集反映されるわけではなく、
 // いったんドラフト配列にコピーして編集し、各セクションの保存ボタンでstateへコミットする。
 var actionsDraft = [];
