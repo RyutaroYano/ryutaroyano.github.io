@@ -583,15 +583,29 @@ function loadLocal(){
 // 保存：まずこの端末に確実に残す。そのうえでサーバーへ送れるだけ送る（失敗しても操作は失われない）。
 var savePending = 0;
 var saveSeq = 0;
-var hasUnsynced = false;   // この端末に、まだサーバーへ届いていない変更があるか
+// この端末に、まだサーバーへ届いていない変更があるか。JS変数だけだとページ再読み込みで
+// falseに戻ってしまい、その状態でload()がサーバーの古い内容を無条件に読み込んで
+// 上書きしてしまう（電波の悪い場所で行った変更が消える）ため、localStorageにも残して
+// 再読み込みをまたいで覚えておく。
+var UNSYNCED_KEY = "gamification_unsynced_v1";
+function setUnsynced_(flag){
+  hasUnsynced = flag;
+  try {
+    if (flag) localStorage.setItem(UNSYNCED_KEY, "1");
+    else localStorage.removeItem(UNSYNCED_KEY);
+  } catch(e){}
+}
+var hasUnsynced = false;
+try { hasUnsynced = localStorage.getItem(UNSYNCED_KEY) === "1"; } catch(e){}
+
 function save(){
   saveLocal();  // ここは必ず成功する（通信不要）ので、オフラインでも操作は消えない
-  if (!GAS_URL){ setSync("未接続", "warn"); return; }
+  if (!GAS_URL){ setSync("未接続", "warn"); return Promise.resolve(); }
   var mySeq = ++saveSeq;
   var payload = JSON.stringify(state);
   savePending++;
   setSync("保存中…", "busy");
-  fetch(gasUrl(), {
+  return fetch(gasUrl(), {
     method: "POST",
     mode: "no-cors",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -601,40 +615,51 @@ function save(){
     savePending--;
     if (mySeq !== saveSeq) return;   // 連続保存中は最後だけ検証
     setSync("確認中…", "busy");
-    setTimeout(function(){
-      if (mySeq !== saveSeq) return;
-      fetch(gasUrl() + (GAS_SECRET ? "&" : "?") + "t=" + Date.now(), { method:"GET" })
-        .then(function(r){ return r.json(); })
-        .then(function(s){
-          if (mySeq !== saveSeq) return;
-          if (s && !s.error && s.points === state.points){
-            hasUnsynced = false;
-            setSync("同期済み", "ok");
-          } else {
-            hasUnsynced = true;
-            setSync("未反映", "err");
-          }
-        })
-        .catch(function(){
-          if (mySeq !== saveSeq) return;
-          hasUnsynced = true;
-          setSync("オフライン（未送信あり）", "warn");
-        });
-    }, 1500);
+    return new Promise(function(resolve){
+      setTimeout(function(){
+        if (mySeq !== saveSeq){ resolve(); return; }
+        fetch(gasUrl() + (GAS_SECRET ? "&" : "?") + "t=" + Date.now(), { method:"GET" })
+          .then(function(r){ return r.json(); })
+          .then(function(s){
+            if (mySeq !== saveSeq){ resolve(); return; }
+            if (s && !s.error && s.points === state.points){
+              setUnsynced_(false);
+              setSync("同期済み", "ok");
+            } else {
+              setUnsynced_(true);
+              setSync("未反映", "err");
+            }
+            resolve();
+          })
+          .catch(function(){
+            if (mySeq !== saveSeq){ resolve(); return; }
+            setUnsynced_(true);
+            setSync("オフライン（未送信あり）", "warn");
+            resolve();
+          });
+      }, 1500);
+    });
   })
   .catch(function(){
     savePending--;
-    hasUnsynced = true;
+    setUnsynced_(true);
     setSync("オフライン（未送信あり）", "warn");
   });
 }
 
-// 読み込み：まずこの端末の直前の状態を出す。そのうえでサーバーの最新を取りに行く（取れれば上書き）。
+// 読み込み：まずこの端末の直前の状態を出す。まだサーバーへ届いていない変更が残っている
+// 場合は、サーバーの内容で上書きするのではなく、ローカルの内容を送り直す（そうしないと、
+// 電波の悪い場所で行った変更が、電波が戻った瞬間にサーバーの古いデータで消されてしまう）。
+// 未送信の変更が無い場合だけ、サーバーの最新を取りに行く（取れれば反映＝他端末での変更を拾う）。
 function load(){
   var hadLocal = loadLocal();
   if (!GAS_URL){
     setSync("未接続", "warn");
     return Promise.resolve();
+  }
+  if (hasUnsynced){
+    setSync("未送信の変更を送信中…", "busy");
+    return save();
   }
   setSync(hadLocal ? "同期中…" : "読込中…", "busy");
   return fetch(gasUrl(), { method:"GET" })
@@ -643,7 +668,7 @@ function load(){
       if (s && !s.error){
         applyLoadedState(s);
         saveLocal();
-        hasUnsynced = false;
+        setUnsynced_(false);
         setSync("同期済み", "ok");
         flushPendingLogs();  // オンラインに戻れたので、溜まっていた日次ログも送る
       } else {
