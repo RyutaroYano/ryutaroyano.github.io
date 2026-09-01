@@ -95,15 +95,15 @@
   .diceBtn.sel { background:#e8562f; border-color:#e8562f; color:#fff; }
   .manualResult { text-align:center; font-size:17px; font-weight:700; padding:12px; background:#f7f7f8; border-radius:12px; margin-bottom:14px; min-height:24px; }
   .modalBtnRow { display:flex; gap:8px; }
-  /* 設定画面はフルスクリーン表示なので、下端だけは.modalOverlayの余白を無くして
-     画面の一番下ぎりぎりまでカードを広げる（左右・上はそのまま） */
-  #settingsModal.modalOverlay.fullscreen { padding-bottom: 0; }
-  /* カード自体の下パディングも無くし、下端の余白はmodalBtnRow自身のpaddingで
-     持たせる（負のmarginをsticky要素に使うと吸着位置がずれることがあるため使わない） */
+  /* 画面端に直接ボタンが付くと環境によっては誤操作・押しにくさにつながるため、
+     設定画面も前日分登録画面と同じ「カード方式」（.modalOverlayの余白を保ち、
+     カードは画面端から浮かせる）のままにする。カード自体の下パディングだけ無くし、
+     余白はmodalBtnRow自身のpaddingで持たせる（負のmarginをsticky要素に使うと
+     吸着位置がずれることがあるため使わない） */
   #settingsModal .modalCard,
   #yesterdayModal .modalCard { padding-bottom: 0; }
   /* 設定画面・前日分登録画面は縦に長くスクロールするため、保存/確定ボタンだけは
-     スクロールに追従させず常に下部ぎりぎりに表示したままにする
+     スクロールに追従させず常にカード下端に表示したままにする
      （env(safe-area-inset-bottom)でホームバー等にかぶらないようにする） */
   #settingsModal .modalBtnRow,
   #yesterdayModal .modalBtnRow {
@@ -152,7 +152,7 @@
   .specialBox { display:flex; align-items:center; gap:10px; background:#eef2fb; border:1.5px solid #b9c6e8; border-radius:12px; padding:10px 12px; margin-top:12px; }
   .specialTag { font-size:10px; color:#6a7bb0; margin-left:6px; }
 
-  .modalOverlay.fullscreen .modalCard { max-width:480px; width:100%; height:100%; max-height:100%; border-radius:0; overflow-y:auto; display:flex; flex-direction:column; }
+  .modalOverlay.fullscreen .modalCard { max-width:480px; width:100%; height:100%; max-height:100%; overflow-y:auto; display:flex; flex-direction:column; }
   .settingsSection { margin-bottom:26px; }
   .settingsSectionTitle { font-size:14px; font-weight:700; margin-bottom:10px; }
   .settingsList { display:flex; flex-direction:column; gap:10px; }
