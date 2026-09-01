@@ -95,6 +95,15 @@
   .diceBtn.sel { background:#e8562f; border-color:#e8562f; color:#fff; }
   .manualResult { text-align:center; font-size:17px; font-weight:700; padding:12px; background:#f7f7f8; border-radius:12px; margin-bottom:14px; min-height:24px; }
   .modalBtnRow { display:flex; gap:8px; }
+  /* 設定画面・前日分登録画面は縦に長くスクロールするため、保存/確定ボタンだけは
+     スクロールに追従させず常に下部に表示したままにする */
+  #settingsModal .modalBtnRow,
+  #yesterdayModal .modalBtnRow {
+    position: sticky; bottom: 0;
+    background: #fff;
+    margin: 8px -20px -20px; padding: 12px 20px 20px;
+    box-shadow: 0 -6px 10px -4px rgba(0,0,0,0.08);
+  }
   .modalConfirm { flex:1; background:#e8562f; color:#fff; border:none; border-radius:12px; padding:11px 0; font-size:14px; font-weight:700; cursor:pointer; }
   .modalConfirm:disabled { background:#ccc; cursor:default; }
   .modalClose { flex:0 0 auto; padding:11px 18px; background:#eee; color:#555; border:none; border-radius:12px; font-size:14px; font-weight:700; cursor:pointer; }
