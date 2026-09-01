@@ -95,13 +95,22 @@
   .diceBtn.sel { background:#e8562f; border-color:#e8562f; color:#fff; }
   .manualResult { text-align:center; font-size:17px; font-weight:700; padding:12px; background:#f7f7f8; border-radius:12px; margin-bottom:14px; min-height:24px; }
   .modalBtnRow { display:flex; gap:8px; }
+  /* 設定画面はフルスクリーン表示なので、下端だけは.modalOverlayの余白を無くして
+     画面の一番下ぎりぎりまでカードを広げる（左右・上はそのまま） */
+  #settingsModal.modalOverlay.fullscreen { padding-bottom: 0; }
+  /* カード自体の下パディングも無くし、下端の余白はmodalBtnRow自身のpaddingで
+     持たせる（負のmarginをsticky要素に使うと吸着位置がずれることがあるため使わない） */
+  #settingsModal .modalCard,
+  #yesterdayModal .modalCard { padding-bottom: 0; }
   /* 設定画面・前日分登録画面は縦に長くスクロールするため、保存/確定ボタンだけは
-     スクロールに追従させず常に下部に表示したままにする */
+     スクロールに追従させず常に下部ぎりぎりに表示したままにする
+     （env(safe-area-inset-bottom)でホームバー等にかぶらないようにする） */
   #settingsModal .modalBtnRow,
   #yesterdayModal .modalBtnRow {
     position: sticky; bottom: 0;
     background: #fff;
-    margin: 8px -20px -20px; padding: 12px 20px 20px;
+    margin-top: 8px;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
     box-shadow: 0 -6px 10px -4px rgba(0,0,0,0.08);
   }
   .modalConfirm { flex:1; background:#e8562f; color:#fff; border:none; border-radius:12px; padding:11px 0; font-size:14px; font-weight:700; cursor:pointer; }
