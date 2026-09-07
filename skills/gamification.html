@@ -86,7 +86,6 @@
   .modalOverlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:100; align-items:center; justify-content:center; padding:20px; }
   .modalOverlay.show { display:flex; }
   .modalCard { background:#fff; border-radius:18px; padding:20px; width:100%; max-width:340px; box-shadow:0 10px 40px rgba(0,0,0,0.25); }
-  #yesterdayModal .modalCard { max-height:85vh; overflow-y:auto; }
   .modalTitle { font-size:16px; font-weight:700; margin-bottom:4px; }
   .modalSub { font-size:12px; color:#888; margin-bottom:14px; }
   .diceLabel { font-size:11px; color:#aaa; margin:4px 0 6px; }
@@ -95,6 +94,24 @@
   .diceBtn.sel { background:#e8562f; border-color:#e8562f; color:#fff; }
   .manualResult { text-align:center; font-size:17px; font-weight:700; padding:12px; background:#f7f7f8; border-radius:12px; margin-bottom:14px; min-height:24px; }
   .modalBtnRow { display:flex; gap:8px; }
+  /* 画面端に直接ボタンが付くと環境によっては誤操作・押しにくさにつながるため、
+     設定画面も前日分登録画面と同じ「カード方式」（.modalOverlayの余白を保ち、
+     カードは画面端から浮かせる）のままにする。カード自体の下パディングだけ無くし、
+     余白はmodalBtnRow自身のpaddingで持たせる（負のmarginをsticky要素に使うと
+     吸着位置がずれることがあるため使わない） */
+  #settingsModal .modalCard,
+  #yesterdayModal .modalCard { padding-bottom: 0; }
+  /* 設定画面・前日分登録画面は縦に長くスクロールするため、保存/確定ボタンだけは
+     スクロールに追従させず常にカード下端に表示したままにする
+     （env(safe-area-inset-bottom)でホームバー等にかぶらないようにする） */
+  #settingsModal .modalBtnRow,
+  #yesterdayModal .modalBtnRow {
+    position: sticky; bottom: 0;
+    background: #fff;
+    margin-top: 8px;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+    box-shadow: 0 -6px 10px -4px rgba(0,0,0,0.08);
+  }
   .modalConfirm { flex:1; background:#e8562f; color:#fff; border:none; border-radius:12px; padding:11px 0; font-size:14px; font-weight:700; cursor:pointer; }
   .modalConfirm:disabled { background:#ccc; cursor:default; }
   .modalClose { flex:0 0 auto; padding:11px 18px; background:#eee; color:#555; border:none; border-radius:12px; font-size:14px; font-weight:700; cursor:pointer; }
@@ -134,7 +151,7 @@
   .specialBox { display:flex; align-items:center; gap:10px; background:#eef2fb; border:1.5px solid #b9c6e8; border-radius:12px; padding:10px 12px; margin-top:12px; }
   .specialTag { font-size:10px; color:#6a7bb0; margin-left:6px; }
 
-  .modalOverlay.fullscreen .modalCard { max-width:480px; width:100%; height:100%; max-height:100%; border-radius:0; overflow-y:auto; display:flex; flex-direction:column; }
+  .modalOverlay.fullscreen .modalCard { max-width:480px; width:100%; height:100%; max-height:100%; overflow-y:auto; display:flex; flex-direction:column; }
   .settingsSection { margin-bottom:26px; }
   .settingsSectionTitle { font-size:14px; font-weight:700; margin-bottom:10px; }
   .settingsList { display:flex; flex-direction:column; gap:10px; }
@@ -234,7 +251,7 @@
     </div>
   </div>
 
-  <div class="modalOverlay" id="yesterdayModal">
+  <div class="modalOverlay fullscreen" id="yesterdayModal">
     <div class="modalCard">
       <div class="modalTitle">前日分を記録する</div>
       <div class="modalSub" id="yesterdaySub"></div>
@@ -1054,6 +1071,11 @@ function clearChildren(el){
 
 function renderYesterdayChecklist(){
   var list = document.getElementById("yesterdayChecklist");
+  // ＋/－を押すたびに一覧を丸ごと作り直すため、一瞬中身が空になった際に
+  // ブラウザがスクロール位置を強制的に詰めてしまう（一番上に戻る）。
+  // 作り直す前後でスクロール位置を保存・復元し、押した場所のまま操作を続けられるようにする。
+  var card = document.querySelector("#yesterdayModal .modalCard");
+  var prevScrollTop = card ? card.scrollTop : 0;
   clearChildren(list);
 
   function buildRow(a){
@@ -1102,6 +1124,7 @@ function renderYesterdayChecklist(){
   }
 
   state.actions.forEach(function(a){ list.appendChild(buildRow(a)); });
+  if (card) card.scrollTop = prevScrollTop;
 
   updateYesterdaySummary();
 }
@@ -1200,9 +1223,13 @@ function openSettings(){
   renderRewardsSettings();
   renderBoardEditor();
   document.getElementById("settingsModal").classList.add("show");
+  // 前日分登録画面と同じく、開いている間は背景側のスクロールを止めて、
+  // カードの一番下までスクロールした後にメイン画面側へスクロールが漏れないようにする
+  document.body.style.overflow = "hidden";
 }
 function closeSettings(){
   document.getElementById("settingsModal").classList.remove("show");
+  document.body.style.overflow = "";
 }
 
 // 配列内のitemA/itemBの実位置を入れ替える（グループでフィルタしたサブ配列内での並び替えでも、
