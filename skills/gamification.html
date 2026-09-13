@@ -33,6 +33,7 @@
   .syncStatus.busy { background:rgba(255,255,255,.28); }
   .syncStatus.err { background:#c62828; }
   .syncStatus.warn { background:rgba(0,0,0,.2); }
+  .syncStatus.conflict { background:#e65100; }
   .pointValueRow { position:relative; display:flex; align-items:baseline; justify-content:center; min-height:58px; }
   .pointValue { font-size:52px; font-weight:700; line-height:1.1; }
   .pointUnit { font-size:20px; font-weight:400; margin-left:4px; }
@@ -525,7 +526,12 @@ var state = {
   rewards:cloneDefault(DEFAULT_REWARDS),
   board:cloneDefault(DEFAULT_BOARD),
   stock:null,
-  elementTagsSeeded:false
+  elementTagsSeeded:false,
+  // rev: サーバー（GAS）だけが増やす改訂番号。lastWriter: 直前にこの内容を書き込もうと
+  // した端末の使い捨てトークン。どちらも他端末との書き込み競合を検出するために使う
+  // （詳しくはsave()のコメントを参照）。
+  rev:0,
+  lastWriter:""
 };
 reindexRewards();
 state.stock = buildZeroStock();
@@ -581,6 +587,8 @@ function applyLoadedState(s){
   state.lastSettled = s.lastSettled||null;
   state.earnedTotal = s.earnedTotal||0;
   state.miyazaki = s.miyazaki||0;
+  state.rev = s.rev||0;
+  state.lastWriter = s.lastWriter||"";
   state.elementTagsSeeded = !!s.elementTagsSeeded;
 }
 
@@ -615,10 +623,33 @@ function setUnsynced_(flag){
 var hasUnsynced = false;
 try { hasUnsynced = localStorage.getItem(UNSYNCED_KEY) === "1"; } catch(e){}
 
+// この端末の書き込みが「別の端末の、より新しい書き込みを上書きしてしまうところだった」場合、
+// 上書きせずに破棄される直前のこの端末の内容を一時退避しておく（何が起きたか追えるように）。
+var CONFLICT_BACKUP_KEY = "gamification_conflict_backup_v1";
+function backupBeforeConflict_(staleState){
+  try {
+    localStorage.setItem(CONFLICT_BACKUP_KEY, JSON.stringify({ savedAt:new Date().toISOString(), state:staleState }));
+  } catch(e){}
+}
+
+// 保存のたびに使い捨てのトークンを発行し、直後の確認GETで「今サーバーに乗っている内容は
+// 本当に自分が今回書き込んだものか」を区別できるようにする（rev番号だけだと、複数端末が
+// 同じrevを取り合った際にどちらの書き込みが実際に反映されたのか見分けがつかないため）。
+function newWriteToken_(){
+  return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,8);
+}
+
+// 保存：まずこの端末に確実に残す。そのうえでサーバーへ送れるだけ送る（失敗しても操作は失われない）。
+// GAS側は、送られてきたrevが今ファイルに保存されているrevと一致する場合だけ書き込み、
+// 一致しなければ拒否する（＝自分が最後に把握していた後に、別の端末が既に書き込んでいる場合、
+// 古い内容で上書きしない）。GASのPOSTはno-corsでレスポンスを読めないため、書き込みが
+// 実際に反映されたかどうかは直後の確認GETでlastWriterトークンを見て判断する。
 function save(){
   saveLocal();  // ここは必ず成功する（通信不要）ので、オフラインでも操作は消えない
   if (!GAS_URL){ setSync("未接続", "warn"); return Promise.resolve(); }
   var mySeq = ++saveSeq;
+  var writeToken = newWriteToken_();
+  state.lastWriter = writeToken;
   var payload = JSON.stringify(state);
   savePending++;
   setSync("保存中…", "busy");
@@ -639,9 +670,22 @@ function save(){
           .then(function(r){ return r.json(); })
           .then(function(s){
             if (mySeq !== saveSeq){ resolve(); return; }
-            if (s && !s.error && s.points === state.points){
+            if (s && !s.error && s.lastWriter === writeToken){
+              // 自分のこの書き込みがそのまま反映されている＝競合なく成功
+              state.rev = s.rev || state.rev;
               setUnsynced_(false);
               setSync("同期済み", "ok");
+            } else if (s && !s.error){
+              // 自分の書き込みは反映されておらず、別の内容（他端末の更新など）が
+              // サーバーに乗っている。この状態でもう一度送り直すと、古い自分の内容で
+              // 新しい方を消してしまうので、この端末の内容はバックアップに退避したうえで
+              // サーバー側の最新をそのまま取り込む。
+              backupBeforeConflict_(cloneDefault(state));
+              applyLoadedState(s);
+              saveLocal();
+              setUnsynced_(false);
+              setSync("他の端末の更新を検出・最新を反映", "conflict");
+              render(); renderBoardTable();
             } else {
               setUnsynced_(true);
               setSync("未反映", "err");
