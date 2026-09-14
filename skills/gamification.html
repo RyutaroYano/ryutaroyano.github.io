@@ -42,6 +42,12 @@
   .secTitle { font-size:13px; font-weight:700; color:#666; margin-bottom:10px; padding-left:2px; }
   .secTitleRow { display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .secTitleRow .secTitle { margin-bottom:10px; }
+  /* 点数をゲット／報酬ストックの見出しは、タップで開閉できるボタンにする */
+  .secToggle { display:flex; align-items:center; gap:6px; background:none; border:none; padding:0 0 0 2px; margin-bottom:10px; font-family:inherit; font-size:13px; font-weight:700; color:#666; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .secChevron { font-size:9px; color:#999; transition:transform .15s ease; }
+  .section.collapsed .secChevron { transform:rotate(-90deg); }
+  .section.collapsed .actionGrid,
+  .section.collapsed .stockList { display:none; }
 
   .actionGrid { display:flex; flex-direction:column; gap:8px; }
   .actionBtn { position:relative; display:flex; align-items:center; gap:10px; background:#fff; border:1.5px solid #e2e2ea; border-radius:12px; padding:13px 14px; min-height:60px; cursor:pointer; font-size:14px; text-align:left; color:#333; width:100%; }
@@ -216,9 +222,9 @@
     </div>
   </div>
 
-  <div class="section">
+  <div class="section" id="pointsSection">
     <div class="secTitleRow">
-      <div class="secTitle">点数をゲット</div>
+      <button class="secToggle" id="pointsToggle" aria-expanded="true"><span class="secChevron">▾</span>点数をゲット</button>
       <button class="yesterdayBtn" id="yesterdayBtn">📅 前日分</button>
     </div>
     <div class="actionGrid" id="actionGrid"></div>
@@ -319,8 +325,8 @@
     </div>
   </div>
 
-  <div class="section">
-    <div class="secTitle">報酬ストック</div>
+  <div class="section" id="stockSection">
+    <button class="secToggle" id="stockToggle" aria-expanded="true"><span class="secChevron">▾</span>報酬ストック</button>
     <div class="stockList" id="stockList"></div>
   </div>
 
@@ -540,6 +546,25 @@ try { GAS_SECRET = localStorage.getItem("gas_secret") || ""; } catch(e){}
 
 var LOCAL_KEY = "gamification_local_v1";      // この端末に持たせる最新state
 var PENDING_LOG_KEY = "gamification_pending_logs_v1"; // まだGASへ送れていない日次ログ
+
+// リストの開閉などの見た目の好みは、この端末だけのちょっとした設定なのでGASには
+// 同期せず、localStorageに直接持たせる（開閉のたびにサーバー保存が飛ぶのを避ける）。
+var UI_KEY = "gamification_ui_v1";
+var uiPrefs = { pointsCollapsed:false, stockCollapsed:false };
+try { uiPrefs = Object.assign(uiPrefs, JSON.parse(localStorage.getItem(UI_KEY) || "{}") || {}); } catch(e){}
+function saveUiPrefs(){ try { localStorage.setItem(UI_KEY, JSON.stringify(uiPrefs)); } catch(e){} }
+function applyCollapseState(){
+  var ps = document.getElementById("pointsSection");
+  var ss = document.getElementById("stockSection");
+  if (ps){
+    ps.classList.toggle("collapsed", !!uiPrefs.pointsCollapsed);
+    document.getElementById("pointsToggle").setAttribute("aria-expanded", String(!uiPrefs.pointsCollapsed));
+  }
+  if (ss){
+    ss.classList.toggle("collapsed", !!uiPrefs.stockCollapsed);
+    document.getElementById("stockToggle").setAttribute("aria-expanded", String(!uiPrefs.stockCollapsed));
+  }
+}
 
 var syncEl = null;
 function setSync(text, cls){
@@ -1828,6 +1853,13 @@ document.getElementById("atariModal").onclick = function(e){
   if (e.target === document.getElementById("atariModal")) closeAtariModal();
 };
 
+document.getElementById("pointsToggle").onclick = function(){
+  uiPrefs.pointsCollapsed = !uiPrefs.pointsCollapsed; saveUiPrefs(); applyCollapseState();
+};
+document.getElementById("stockToggle").onclick = function(){
+  uiPrefs.stockCollapsed = !uiPrefs.stockCollapsed; saveUiPrefs(); applyCollapseState();
+};
+
 document.getElementById("settingsBtn").onclick = openSettings;
 document.getElementById("reloadBtn").onclick = manualReload;
 document.getElementById("settingsClose").onclick = function(e){ e.stopPropagation(); closeSettings(); };
@@ -1853,6 +1885,7 @@ function startApp(){
   loadLocal();
   renderBoardTable();
   render();
+  applyCollapseState();
   load().then(function(){
     settlePastDays();
     seedInitialElementTagsOnce();
