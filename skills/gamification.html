@@ -43,6 +43,12 @@
   .secTitle { font-size:13px; font-weight:700; color:#666; margin-bottom:10px; padding-left:2px; }
   .secTitleRow { display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .secTitleRow .secTitle { margin-bottom:10px; }
+  /* 点数をゲット／報酬ストックの見出しは、タップで開閉できるボタンにする */
+  .secToggle { display:flex; align-items:center; gap:6px; background:none; border:none; padding:0 0 0 2px; margin-bottom:10px; font-family:inherit; font-size:13px; font-weight:700; color:#666; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .secChevron { font-size:9px; color:#999; transition:transform .15s ease; }
+  .section.collapsed .secChevron { transform:rotate(-90deg); }
+  .section.collapsed .actionGrid,
+  .section.collapsed .stockList { display:none; }
 
   .actionGrid { display:flex; flex-direction:column; gap:8px; }
   .actionBtn { position:relative; display:flex; align-items:center; gap:10px; background:#fff; border:1.5px solid #e2e2ea; border-radius:12px; padding:13px 14px; min-height:60px; cursor:pointer; font-size:14px; text-align:left; color:#333; width:100%; }
@@ -217,9 +223,9 @@
     </div>
   </div>
 
-  <div class="section">
+  <div class="section" id="pointsSection">
     <div class="secTitleRow">
-      <div class="secTitle">点数をゲット</div>
+      <button class="secToggle" id="pointsToggle" aria-expanded="true"><span class="secChevron">▾</span>点数をゲット</button>
       <button class="yesterdayBtn" id="yesterdayBtn">📅 前日分</button>
     </div>
     <div class="actionGrid" id="actionGrid"></div>
@@ -296,6 +302,13 @@
       </div>
 
       <div class="settingsSection">
+        <div class="settingsSectionTitle">特別報酬</div>
+        <div class="modalSub">サイコロとは別枠で、累積獲得点が指定した点数をまたぐごとに1つ解放されます。無効にすると表示されなくなります。</div>
+        <div id="specialSettings"></div>
+        <div class="settingsValidation" id="specialValidation"></div>
+      </div>
+
+      <div class="settingsSection">
         <div class="settingsSectionTitle">盤面編集</div>
         <div class="modalSub">マスをタップすると、対称なマスとまとめて報酬を変更できます。新しく追加した報酬は、先に保存してからここで選べるようになります。</div>
         <div class="boardWrap"><table class="boardTable" id="boardEditTable"></table></div>
@@ -320,8 +333,8 @@
     </div>
   </div>
 
-  <div class="section">
-    <div class="secTitle">報酬ストック</div>
+  <div class="section" id="stockSection">
+    <button class="secToggle" id="stockToggle" aria-expanded="true"><span class="secChevron">▾</span>報酬ストック</button>
     <div class="stockList" id="stockList"></div>
   </div>
 
@@ -475,6 +488,12 @@ var DEFAULT_REWARDS = [
   { id:"atari",       emoji:"㊗️", name:"当たり", carryover:true, tag:"" },
 ];
 
+// 特別報酬：サイコロとは別枠で、累積獲得点が threshold 点をまたぐごとに1つ解放される。
+// 設定画面で名前・絵文字・解放点数を編集でき、enabled=false で完全に非表示にできる。
+// （もともと「10点ごとに海野さんのセッション音声」という固定枠だったが、
+//  使う内容を自分で決められるように設定可能にした。state.miyazaki を解放数のカウンタとして流用する）
+var DEFAULT_SPECIAL = { emoji:"🎧", name:"海野さんのセッション音声", threshold:10, enabled:true };
+
 // 盤面（線対称・優先順で読める）：設定画面の「盤面編集」でマス単位に編集する。
 var DEFAULT_BOARD = [
   ["ytwatch","ytwatch","smartphone","smartphone","eatout","smartphone","smartphone","smartphone"],
@@ -525,6 +544,7 @@ var state = {
   actions:cloneDefault(DEFAULT_ACTIONS),
   rewards:cloneDefault(DEFAULT_REWARDS),
   board:cloneDefault(DEFAULT_BOARD),
+  special:cloneDefault(DEFAULT_SPECIAL),
   stock:null,
   elementTagsSeeded:false,
   // rev: サーバー（GAS）だけが増やす改訂番号。lastWriter: 直前にこの内容を書き込もうと
@@ -546,6 +566,25 @@ try { GAS_SECRET = localStorage.getItem("gas_secret") || ""; } catch(e){}
 
 var LOCAL_KEY = "gamification_local_v1";      // この端末に持たせる最新state
 var PENDING_LOG_KEY = "gamification_pending_logs_v1"; // まだGASへ送れていない日次ログ
+
+// リストの開閉などの見た目の好みは、この端末だけのちょっとした設定なのでGASには
+// 同期せず、localStorageに直接持たせる（開閉のたびにサーバー保存が飛ぶのを避ける）。
+var UI_KEY = "gamification_ui_v1";
+var uiPrefs = { pointsCollapsed:false, stockCollapsed:false };
+try { uiPrefs = Object.assign(uiPrefs, JSON.parse(localStorage.getItem(UI_KEY) || "{}") || {}); } catch(e){}
+function saveUiPrefs(){ try { localStorage.setItem(UI_KEY, JSON.stringify(uiPrefs)); } catch(e){} }
+function applyCollapseState(){
+  var ps = document.getElementById("pointsSection");
+  var ss = document.getElementById("stockSection");
+  if (ps){
+    ps.classList.toggle("collapsed", !!uiPrefs.pointsCollapsed);
+    document.getElementById("pointsToggle").setAttribute("aria-expanded", String(!uiPrefs.pointsCollapsed));
+  }
+  if (ss){
+    ss.classList.toggle("collapsed", !!uiPrefs.stockCollapsed);
+    document.getElementById("stockToggle").setAttribute("aria-expanded", String(!uiPrefs.stockCollapsed));
+  }
+}
 
 var syncEl = null;
 function setSync(text, cls){
@@ -589,6 +628,8 @@ function applyLoadedState(s){
   state.miyazaki = s.miyazaki||0;
   state.rev = s.rev||0;
   state.lastWriter = s.lastWriter||"";
+  // 旧データ（special未設定）は従来どおり「10点ごとに海野さんのセッション音声」で動かす
+  state.special = Object.assign(cloneDefault(DEFAULT_SPECIAL), s.special||{});
   state.elementTagsSeeded = !!s.elementTagsSeeded;
 }
 
@@ -863,6 +904,15 @@ function dailyCount_(dateStr, actionId){
   return (rec && Number(rec[actionId])) || 0;
 }
 
+// 累積獲得点が before → after へ進んだとき、特別報酬が何個解放されるか。
+// 無効化されている・解放点数が不正なときは0。
+function specialUnlockCount_(before, after){
+  if (!state.special || !state.special.enabled) return 0;
+  var t = state.special.threshold;
+  if (!(t >= 1)) return 0;
+  return Math.floor(after/t) - Math.floor(before/t);
+}
+
 function addPoint(a, btn){
   // 記録ボタンを押すたびに、日をまたいでいないか念のため確認しておく
   settlePastDays();
@@ -874,14 +924,14 @@ function addPoint(a, btn){
   state.daily[td][a.id] = count + 1;
   state.points += a.pt;
   state.log.unshift({ date:todayStr(), type:"earn", detail:a.label, pt:a.pt });
-  // 累積獲得点を進め、10点をまたぐごとに海野さん音声を1回解放
+  // 累積獲得点を進め、特別報酬の解放点数をまたぐごとに1つ解放する
   var before = state.earnedTotal || 0;
   var after = before + a.pt;
   state.earnedTotal = after;
-  var unlocked = Math.floor(after/10) - Math.floor(before/10);
+  var unlocked = specialUnlockCount_(before, after);
   if (unlocked > 0){
     state.miyazaki = (state.miyazaki||0) + unlocked;
-    state.log.unshift({ date:todayStr(), type:"milestone", detail:"🎧 海野さんのセッション音声 解放（累積"+after+"点）", pt:0 });
+    state.log.unshift({ date:todayStr(), type:"milestone", detail:state.special.emoji+" "+state.special.name+" 解放（累積"+after+"点）", pt:0 });
   }
   // 70点をまたぐごとに㊗️当たりを1回、確実に解放
   var unlockedAtari = Math.floor(after/70) - Math.floor(before/70);
@@ -894,7 +944,7 @@ function addPoint(a, btn){
   // 押したボタンを再描画後に取り直して、その上に +N を出す
   var fresh = document.getElementById("act_"+a.id);
   flashOnButton(fresh, "+"+a.pt+"点");
-  if (unlocked > 0) setTimeout(function(){ showFlash("🎧 音声 解放！"); }, 900);
+  if (unlocked > 0) setTimeout(function(){ showFlash(state.special.emoji+" 解放！"); }, 900);
   if (unlockedAtari > 0) setTimeout(function(){ showFlash("㊗️ 当たり 確定！"); }, unlocked>0 ? 1800 : 900);
 }
 
@@ -1059,10 +1109,10 @@ function closeManual(){
 function consumeMiyazaki(){
   if ((state.miyazaki||0) <= 0) return;
   state.miyazaki -= 1;
-  state.log.unshift({ date:todayStr(), type:"use", detail:"🎧 海野さんのセッション音声 を消費", pt:0 });
+  state.log.unshift({ date:todayStr(), type:"use", detail:state.special.emoji+" "+state.special.name+" を消費", pt:0 });
   state.log = state.log.slice(0,200);
   save(); render();
-  showFlash("🎧 消費");
+  showFlash(state.special.emoji+" 消費");
 }
 
 function doReset(){
@@ -1223,10 +1273,10 @@ function confirmYesterdayLog(){
   var before = state.earnedTotal || 0;
   var after = before + totalAdded;
   state.earnedTotal = after;
-  var unlocked = Math.floor(after/10) - Math.floor(before/10);
+  var unlocked = specialUnlockCount_(before, after);
   if (unlocked > 0){
     state.miyazaki = (state.miyazaki||0) + unlocked;
-    state.log.unshift({ date:todayStr(), type:"milestone", detail:"🎧 海野さんのセッション音声 解放（累積"+after+"点）", pt:0 });
+    state.log.unshift({ date:todayStr(), type:"milestone", detail:state.special.emoji+" "+state.special.name+" 解放（累積"+after+"点）", pt:0 });
   }
   var unlockedAtari = Math.floor(after/70) - Math.floor(before/70);
   if (unlockedAtari > 0){
@@ -1241,7 +1291,7 @@ function confirmYesterdayLog(){
   render();
   closeYesterdayModal();
   showFlash("+"+totalAdded+"点（前日分）");
-  if (unlocked > 0) setTimeout(function(){ showFlash("🎧 音声 解放！"); }, 900);
+  if (unlocked > 0) setTimeout(function(){ showFlash(state.special.emoji+" 解放！"); }, 900);
   if (unlockedAtari > 0) setTimeout(function(){ showFlash("㊗️ 当たり 確定！"); }, unlocked>0 ? 1800 : 900);
 }
 
@@ -1251,6 +1301,7 @@ function confirmYesterdayLog(){
 var actionsDraft = [];
 var rewardsDraft = [];
 var boardDraft = [];
+var specialDraft = {};
 
 function flashButtonLabel(btn, tempText){
   if (!btn) return;
@@ -1263,8 +1314,10 @@ function openSettings(){
   actionsDraft = cloneDefault(state.actions);
   rewardsDraft = cloneDefault(state.rewards);
   boardDraft = cloneDefault(state.board);
+  specialDraft = Object.assign(cloneDefault(DEFAULT_SPECIAL), cloneDefault(state.special || {}));
   renderActionsSettings();
   renderRewardsSettings();
+  renderSpecialSettings();
   renderBoardEditor();
   document.getElementById("settingsModal").classList.add("show");
   // 前日分登録画面と同じく、開いている間は背景側のスクロールを止めて、
@@ -1518,13 +1571,75 @@ function updateRewardsValidation(){
   updateSettingsSaveState();
 }
 
+// 特別報酬（○点ごとに解放される別枠の報酬）の編集欄。
+function renderSpecialSettings(){
+  var host = document.getElementById("specialSettings");
+  host.innerHTML = "";
+  var row = document.createElement("div");
+  row.className = "settingsRow";
+
+  var line1 = document.createElement("div");
+  line1.className = "settingsRowLine1";
+  var emojiInput = document.createElement("input");
+  emojiInput.type = "text"; emojiInput.className = "settingsEmojiInput"; emojiInput.maxLength = 4;
+  emojiInput.value = specialDraft.emoji;
+  emojiInput.oninput = function(){ specialDraft.emoji = emojiInput.value; };
+  var nameInput = document.createElement("input");
+  nameInput.type = "text"; nameInput.className = "settingsTextInput"; nameInput.placeholder = "特別報酬の名前";
+  nameInput.value = specialDraft.name;
+  nameInput.oninput = function(){ specialDraft.name = nameInput.value; updateSpecialValidation(); };
+  line1.appendChild(emojiInput); line1.appendChild(nameInput);
+
+  var line2 = document.createElement("div");
+  line2.className = "settingsRowLine2";
+  var enabledLabel = document.createElement("label");
+  enabledLabel.className = "settingsToggleLabel";
+  var enabledCheck = document.createElement("input");
+  enabledCheck.type = "checkbox"; enabledCheck.checked = !!specialDraft.enabled;
+  enabledCheck.onchange = function(){ specialDraft.enabled = enabledCheck.checked; renderSpecialSettings(); };
+  enabledLabel.appendChild(enabledCheck);
+  enabledLabel.appendChild(document.createTextNode("有効"));
+
+  var thLabel = document.createElement("label");
+  thLabel.className = "settingsToggleLabel";
+  var thInput = document.createElement("input");
+  thInput.type = "number"; thInput.min = "1"; thInput.step = "1";
+  thInput.className = "settingsNumInput"; thInput.style.width = "3.4em";
+  thInput.value = specialDraft.threshold;
+  thInput.disabled = !specialDraft.enabled;
+  thInput.oninput = function(){ specialDraft.threshold = parseInt(thInput.value,10) || 0; updateSpecialValidation(); };
+  thLabel.appendChild(document.createTextNode("累積"));
+  thLabel.appendChild(thInput);
+  thLabel.appendChild(document.createTextNode("点ごとに解放"));
+
+  line2.appendChild(enabledLabel); line2.appendChild(thLabel);
+  row.appendChild(line1); row.appendChild(line2);
+  host.appendChild(row);
+  updateSpecialValidation();
+}
+
+function getSpecialDraftValidation(){
+  if (!specialDraft.enabled) return { ok:true, message:"無効（メイン画面に表示しない）" };
+  if (!(specialDraft.name||"").trim()) return { ok:false, message:"特別報酬の名前が空です" };
+  if (!(specialDraft.threshold >= 1)) return { ok:false, message:"解放点数は1以上にしてください" };
+  return { ok:true, message:specialDraft.threshold+"点ごとに解放" };
+}
+
+function updateSpecialValidation(){
+  var panel = document.getElementById("specialValidation");
+  var result = getSpecialDraftValidation();
+  panel.textContent = result.message;
+  panel.className = "settingsValidation " + (result.ok ? "ok" : "err");
+  updateSettingsSaveState();
+}
+
 // やることリスト・報酬リスト・盤面編集の3つのドラフトを、設定画面下部の「保存」ボタン
 // 1つでまとめてstateへコミットする（以前は各セクションに個別の保存ボタンがあったが、
 // 保存ボタンは画面下に1つだけあればいいという要望のため統合した）。
 function updateSettingsSaveState(){
   var btn = document.getElementById("saveSettingsBtn");
   if (!btn) return;
-  btn.disabled = !(getActionsDraftValidation().ok && getRewardsDraftValidation().ok);
+  btn.disabled = !(getActionsDraftValidation().ok && getRewardsDraftValidation().ok && getSpecialDraftValidation().ok);
 }
 
 function saveAllSettings(){
@@ -1545,6 +1660,10 @@ function saveAllSettings(){
   rewardsSnapshot.forEach(function(r){ validIds[r.id] = true; });
   Object.keys(state.stock).forEach(function(k){ if (!validIds[k]) delete state.stock[k]; });
   rewardsSnapshot.forEach(function(r){ if (!(r.id in state.stock)) state.stock[r.id] = 0; });
+
+  // 特別報酬
+  state.special = cloneDefault(specialDraft);
+  if (state.special.threshold < 1) state.special.threshold = DEFAULT_SPECIAL.threshold;
 
   // 盤面
   state.board = cloneDefault(boardDraft);
@@ -1791,26 +1910,33 @@ function render(){
   // 当日限りの項目だけ、ストック数の下に「当日」の小さな目印を添える。
   state.rewards.forEach(function(r){ sl.appendChild(buildRow(r.id)); });
 
-  // 特別枠：10点ごとに解放される海野さんセッション音声（一番下）
+  // 特別枠：解放点数ごとに1つ解放される特別報酬（一番下）。
+  // 無効化されていて、かつ未使用の解放数も無いなら表示しない。
   var mn = state.miyazaki || 0;
-  var specialBox = document.createElement("div");
-  specialBox.className = "specialBox";
-  specialBox.style.opacity = mn>0 ? 1 : .55;
-  var specialEmoji = document.createElement("span");
-  specialEmoji.className = "stockEmoji"; specialEmoji.textContent = "🎧";
-  var specialName = document.createElement("span");
-  specialName.className = "stockName"; specialName.textContent = "海野さんのセッション音声";
-  var specialTag = document.createElement("span");
-  specialTag.className = "specialTag"; specialTag.textContent = ((state.earnedTotal||0) % 10) + "/10";
-  specialName.appendChild(specialTag);
-  var specialCount = document.createElement("span");
-  specialCount.className = "stockCount"; specialCount.textContent = "×"+mn;
-  specialBox.appendChild(specialEmoji); specialBox.appendChild(specialName); specialBox.appendChild(specialCount);
-  var mub = document.createElement("button");
-  mub.className = "useBtn"; mub.textContent = "使う"; mub.disabled = !(mn>0);
-  mub.onclick = function(){ consumeMiyazaki(); };
-  specialBox.appendChild(mub);
-  sl.appendChild(specialBox);
+  var sp = state.special || DEFAULT_SPECIAL;
+  if (sp.enabled || mn > 0){
+    var specialBox = document.createElement("div");
+    specialBox.className = "specialBox";
+    specialBox.style.opacity = mn>0 ? 1 : .55;
+    var specialEmoji = document.createElement("span");
+    specialEmoji.className = "stockEmoji"; specialEmoji.textContent = sp.emoji;
+    var specialName = document.createElement("span");
+    specialName.className = "stockName"; specialName.textContent = sp.name;
+    if (sp.enabled && sp.threshold >= 1){
+      var specialTag = document.createElement("span");
+      specialTag.className = "specialTag";
+      specialTag.textContent = ((state.earnedTotal||0) % sp.threshold) + "/" + sp.threshold;
+      specialName.appendChild(specialTag);
+    }
+    var specialCount = document.createElement("span");
+    specialCount.className = "stockCount"; specialCount.textContent = "×"+mn;
+    specialBox.appendChild(specialEmoji); specialBox.appendChild(specialName); specialBox.appendChild(specialCount);
+    var mub = document.createElement("button");
+    mub.className = "useBtn"; mub.textContent = "使う"; mub.disabled = !(mn>0);
+    mub.onclick = function(){ consumeMiyazaki(); };
+    specialBox.appendChild(mub);
+    sl.appendChild(specialBox);
+  }
 
   // 履歴
   var ll = document.getElementById("logList");
@@ -1872,6 +1998,13 @@ document.getElementById("atariModal").onclick = function(e){
   if (e.target === document.getElementById("atariModal")) closeAtariModal();
 };
 
+document.getElementById("pointsToggle").onclick = function(){
+  uiPrefs.pointsCollapsed = !uiPrefs.pointsCollapsed; saveUiPrefs(); applyCollapseState();
+};
+document.getElementById("stockToggle").onclick = function(){
+  uiPrefs.stockCollapsed = !uiPrefs.stockCollapsed; saveUiPrefs(); applyCollapseState();
+};
+
 document.getElementById("settingsBtn").onclick = openSettings;
 document.getElementById("reloadBtn").onclick = manualReload;
 document.getElementById("settingsClose").onclick = function(e){ e.stopPropagation(); closeSettings(); };
@@ -1897,6 +2030,7 @@ function startApp(){
   loadLocal();
   renderBoardTable();
   render();
+  applyCollapseState();
   load().then(function(){
     settlePastDays();
     seedInitialElementTagsOnce();
