@@ -209,6 +209,13 @@
   </div>
 </div>
 
+<div class="modalOverlay" id="syncGate">
+  <div class="modalCard">
+    <div class="modalTitle">最新の状態を取得中…</div>
+    <div class="modalSub">他の端末の更新を反映してから始めます。</div>
+  </div>
+</div>
+
 <div class="wrap">
   <button class="reloadBtn" id="reloadBtn" aria-label="更新" title="更新">🔄</button>
   <button class="settingsGear" id="settingsBtn" aria-label="設定" title="設定">⚙️</button>
@@ -753,7 +760,9 @@ function save(){
 // 場合は、サーバーの内容で上書きするのではなく、ローカルの内容を送り直す（そうしないと、
 // 電波の悪い場所で行った変更が、電波が戻った瞬間にサーバーの古いデータで消されてしまう）。
 // 未送信の変更が無い場合だけ、サーバーの最新を取りに行く（取れれば反映＝他端末での変更を拾う）。
-function load(){
+// timeoutMs指定時は、その時間内にサーバーから取れなければ取得を打ち切ってオフライン扱いにする
+// （打ち切った後に遅れて届いた古い応答で、その間の入力を上書きしないため）。
+function load(timeoutMs){
   var hadLocal = loadLocal();
   if (!GAS_URL){
     setSync("未接続", "warn");
@@ -764,9 +773,12 @@ function load(){
     return save();
   }
   setSync(hadLocal ? "同期中…" : "読込中…", "busy");
-  return fetch(gasUrl(), { method:"GET" })
+  var ctrl = (timeoutMs && typeof AbortController !== "undefined") ? new AbortController() : null;
+  var timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, timeoutMs) : null;
+  return fetch(gasUrl(), ctrl ? { method:"GET", signal:ctrl.signal } : { method:"GET" })
     .then(function(r){ return r.json(); })
     .then(function(s){
+      if (timer) clearTimeout(timer);
       if (s && !s.error){
         applyLoadedState(s);
         saveLocal();
@@ -778,8 +790,21 @@ function load(){
       }
     })
     .catch(function(){
+      if (timer) clearTimeout(timer);
       setSync(hadLocal ? "オフライン（前回の記録を表示中）" : "オフラインです", "warn");
     });
+}
+
+// 入力を始める前に最新を取り込む：取得が終わるまで入力を止める（他端末の更新を知らない
+// 古い状態から入力して、後で競合するのを防ぐ）。SYNC_GATE_TIMEOUT_MS内に取れなければ
+// ゲートを外してオフラインのまま使えるようにする（その場合の変更は後で送り直される）。
+var SYNC_GATE_TIMEOUT_MS = 6000;
+function syncWithGate(){
+  var gate = document.getElementById("syncGate");
+  gate.classList.add("show");
+  return load(SYNC_GATE_TIMEOUT_MS).then(function(){
+    gate.classList.remove("show");
+  });
 }
 
 // ───────── 日跨ぎ処理（当日限り報酬のリセットのみ・ペナルティなし） ─────────
@@ -2031,10 +2056,11 @@ function startApp(){
   renderBoardTable();
   render();
   applyCollapseState();
-  load().then(function(){
+  syncWithGate().then(function(){
     settlePastDays();
     seedInitialElementTagsOnce();
     render();
+    renderBoardTable();
   });
   // ネットが戻ったら、押した記録が確実にサーバーへ追いつくようにする
   window.addEventListener("online", function(){
@@ -2043,9 +2069,21 @@ function startApp(){
   });
   // ホーム画面アプリを閉じずに日をまたいだ場合でも取りこぼさないよう、
   // フォアグラウンド復帰時に日跨ぎ処理を再チェックする
+  // 一定時間以上バックグラウンドにあった場合は、その間に他端末で更新されている可能性が
+  // あるので、入力を再開する前に最新を取り込み直す。
+  var hiddenAt = 0;
   document.addEventListener("visibilitychange", function(){
-    if (document.visibilityState === "visible"){
-      if (settlePastDays()) render();
+    if (document.visibilityState === "hidden"){
+      hiddenAt = Date.now();
+    } else if (document.visibilityState === "visible"){
+      if (hiddenAt && Date.now() - hiddenAt > 30000 && !reloading){
+        hiddenAt = 0;
+        syncWithGate().then(function(){
+          settlePastDays();
+          render();
+          renderBoardTable();
+        });
+      } else if (settlePastDays()) render();
     }
   });
 }
