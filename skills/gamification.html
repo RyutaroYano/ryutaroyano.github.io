@@ -654,8 +654,6 @@ function loadLocal(){
 }
 
 // 保存：まずこの端末に確実に残す。そのうえでサーバーへ送れるだけ送る（失敗しても操作は失われない）。
-var savePending = 0;
-var saveSeq = 0;
 // この端末に、まだサーバーへ届いていない変更があるか。JS変数だけだとページ再読み込みで
 // falseに戻ってしまい、その状態でload()がサーバーの古い内容を無条件に読み込んで
 // 上書きしてしまう（電波の悪い場所で行った変更が消える）ため、localStorageにも残して
@@ -687,19 +685,120 @@ function newWriteToken_(){
   return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,8);
 }
 
+// 「最後にサーバーと一致していたことが確認できた内容」を端末に覚えておく。他の端末と書き込みが
+// ぶつかったとき、これと今の内容を比べて「この端末で増やした分だけ」を取り出し、サーバーの
+// 最新に足し直すために使う（この端末の入力を捨てずに合流させるため）。
+var BASE_KEY = "gamification_base_v1";
+function saveBase_(s){
+  try { localStorage.setItem(BASE_KEY, JSON.stringify(s)); } catch(e){}
+}
+function loadBase_(){
+  try { var r = localStorage.getItem(BASE_KEY); return r ? JSON.parse(r) : null; } catch(e){ return null; }
+}
+
+// base（最後に一致を確認できた内容）→local（今の内容）で増減した分を、server（他端末の最新）へ足して返す。
+// 数値（点数・在庫・日ごとの回数）は差分を足し、ログは新しく増えた分を先頭に足し、
+// 設定（項目・報酬・盤面・特別報酬）はこの端末で編集していたらこの端末の内容を採用する。
+function mergeStates_(base, local, server){
+  var m = JSON.parse(JSON.stringify(server));
+  function num(v){ return Number(v) || 0; }
+  ["points","earnedTotal","miyazaki"].forEach(function(k){
+    m[k] = Math.max(0, num(server[k]) + num(local[k]) - num(base[k]));
+  });
+  m.stock = m.stock || {};
+  Object.keys(local.stock || {}).forEach(function(id){
+    var delta = num((local.stock||{})[id]) - num((base.stock||{})[id]);
+    if (delta !== 0) m.stock[id] = Math.max(0, num(m.stock[id]) + delta);
+  });
+  m.daily = m.daily || {};
+  Object.keys(local.daily || {}).forEach(function(date){
+    var lrec = local.daily[date] || {}, brec = (base.daily||{})[date] || {};
+    Object.keys(lrec).forEach(function(id){
+      var delta = num(lrec[id]) - num(brec[id]);
+      if (delta === 0) return;
+      if (!m.daily[date]) m.daily[date] = {};
+      m.daily[date][id] = Math.max(0, num(m.daily[date][id]) + delta);
+    });
+  });
+  var baseLog = {};
+  (base.log || []).forEach(function(e){ baseLog[JSON.stringify(e)] = true; });
+  var added = (local.log || []).filter(function(e){ return !baseLog[JSON.stringify(e)]; });
+  m.log = added.concat(server.log || []).slice(0, 200);
+  ["actions","rewards","board","special"].forEach(function(k){
+    if (JSON.stringify(local[k]) !== JSON.stringify(base[k])) m[k] = local[k];
+  });
+  if ((local.lastSettled || "") > (server.lastSettled || "")) m.lastSettled = local.lastSettled;
+  m.elementTagsSeeded = !!(server.elementTagsSeeded || local.elementTagsSeeded);
+  return m;
+}
+
 // 保存：まずこの端末に確実に残す。そのうえでサーバーへ送れるだけ送る（失敗しても操作は失われない）。
 // GAS側は、送られてきたrevが今ファイルに保存されているrevと一致する場合だけ書き込み、
 // 一致しなければ拒否する（＝自分が最後に把握していた後に、別の端末が既に書き込んでいる場合、
 // 古い内容で上書きしない）。GASのPOSTはno-corsでレスポンスを読めないため、書き込みが
 // 実際に反映されたかどうかは直後の確認GETでlastWriterトークンを見て判断する。
+//
+// 送信は必ず1本ずつ直列に行う。連続して操作したときに複数のPOSTが同じrevで飛ぶと、
+// 2本目以降が「古いrev」として自分自身に拒否され、競合と誤判定して直前の入力を失うため。
+// 送信中に新しい操作があったら、今の送信が終わってから、最新のrevで最新の内容を送り直す。
+var saveInFlight = null;
+var saveDirty = false;
+var myTokens = [];
 function save(){
   saveLocal();  // ここは必ず成功する（通信不要）ので、オフラインでも操作は消えない
   if (!GAS_URL){ setSync("未接続", "warn"); return Promise.resolve(); }
-  var mySeq = ++saveSeq;
-  var writeToken = newWriteToken_();
-  state.lastWriter = writeToken;
+  saveDirty = true;
+  // 送信が終わる前にアプリが閉じられても、次回起動時に「未送信あり」として送り直せるよう先に立てる
+  setUnsynced_(true);
+  if (saveInFlight) return saveInFlight;
+  saveInFlight = runSaveLoop_(0).then(function(){ saveInFlight = null; }, function(){ saveInFlight = null; });
+  return saveInFlight;
+}
+
+function runSaveLoop_(mergeCount){
+  if (!saveDirty) return Promise.resolve();
+  saveDirty = false;
+  return pushOnce_().then(function(kind){
+    if (kind === "fail"){ saveDirty = false; return; }  // 未送信のまま残し、次の機会に再送する
+    if (kind === "retry"){
+      if (mergeCount >= 5){ setUnsynced_(true); setSync("未反映", "err"); return; }
+      saveDirty = true;
+      return runSaveLoop_(mergeCount + 1);
+    }
+    return runSaveLoop_(0);  // 成功。送信中に増えた操作があればもう一度
+  });
+}
+
+function pollVerify_(token, sentRev, attempt){
+  return new Promise(function(resolve){
+    setTimeout(function(){
+      fetch(gasUrl() + (GAS_SECRET ? "&" : "?") + "t=" + Date.now(), { method:"GET" })
+        .then(function(r){ return r.json(); })
+        .then(function(s){
+          if (!s || s.error){ resolve({ kind:"fail", msg:"未反映" }); return; }
+          if (s.lastWriter === token){ resolve({ kind:"ok", s:s }); return; }
+          if ((s.rev || 0) === sentRev){
+            // revが変わっていない＝まだ自分の書き込みが届いていないだけ（GASの起動待ちなど）。
+            // ここで「競合」と決めつけると、自分の入力を捨ててしまうので、少し待って見直す。
+            if (attempt >= 4){ resolve({ kind:"fail", msg:"未反映" }); return; }
+            pollVerify_(token, sentRev, attempt + 1).then(resolve);
+            return;
+          }
+          if (s.lastWriter && myTokens.indexOf(s.lastWriter) !== -1){ resolve({ kind:"mine", s:s }); return; }
+          resolve({ kind:"conflict", s:s });
+        })
+        .catch(function(){ resolve({ kind:"fail", msg:"オフライン（未送信あり）", offline:true }); });
+    }, 1500);
+  });
+}
+
+function pushOnce_(){
+  var token = newWriteToken_();
+  var sentRev = state.rev || 0;
+  state.lastWriter = token;
+  myTokens.push(token); if (myTokens.length > 10) myTokens.shift();
   var payload = JSON.stringify(state);
-  savePending++;
+  var sentState = JSON.parse(payload);
   setSync("保存中…", "busy");
   return fetch(gasUrl(), {
     method: "POST",
@@ -708,51 +807,54 @@ function save(){
     body: payload
   })
   .then(function(){
-    savePending--;
-    if (mySeq !== saveSeq) return;   // 連続保存中は最後だけ検証
     setSync("確認中…", "busy");
-    return new Promise(function(resolve){
-      setTimeout(function(){
-        if (mySeq !== saveSeq){ resolve(); return; }
-        fetch(gasUrl() + (GAS_SECRET ? "&" : "?") + "t=" + Date.now(), { method:"GET" })
-          .then(function(r){ return r.json(); })
-          .then(function(s){
-            if (mySeq !== saveSeq){ resolve(); return; }
-            if (s && !s.error && s.lastWriter === writeToken){
-              // 自分のこの書き込みがそのまま反映されている＝競合なく成功
-              state.rev = s.rev || state.rev;
-              setUnsynced_(false);
-              setSync("同期済み", "ok");
-            } else if (s && !s.error){
-              // 自分の書き込みは反映されておらず、別の内容（他端末の更新など）が
-              // サーバーに乗っている。この状態でもう一度送り直すと、古い自分の内容で
-              // 新しい方を消してしまうので、この端末の内容はバックアップに退避したうえで
-              // サーバー側の最新をそのまま取り込む。
-              backupBeforeConflict_(cloneDefault(state));
-              applyLoadedState(s);
-              saveLocal();
-              setUnsynced_(false);
-              setSync("他の端末の更新を検出・最新を反映", "conflict");
-              render(); renderBoardTable();
-            } else {
-              setUnsynced_(true);
-              setSync("未反映", "err");
-            }
-            resolve();
-          })
-          .catch(function(){
-            if (mySeq !== saveSeq){ resolve(); return; }
-            setUnsynced_(true);
-            setSync("オフライン（未送信あり）", "warn");
-            resolve();
-          });
-      }, 1500);
-    });
+    return pollVerify_(token, sentRev, 0);
+  }, function(){
+    return { kind:"fail", msg:"オフライン（未送信あり）", offline:true };
   })
-  .catch(function(){
-    savePending--;
+  .then(function(res){
+    if (res.kind === "ok"){
+      state.rev = res.s.rev || state.rev;
+      sentState.rev = state.rev;
+      saveBase_(sentState);
+      saveLocal();
+      if (!saveDirty){ setUnsynced_(false); setSync("同期済み", "ok"); }
+      return "ok";
+    }
+    if (res.kind === "mine"){
+      // 以前送って結果が確認できなかった自分の書き込みが、後から届いていた。サーバーには
+      // 自分の内容が乗っているだけなので、revだけ合わせて今の内容を送り直す。
+      state.rev = res.s.rev || state.rev;
+      saveLocal();
+      return "retry";
+    }
+    if (res.kind === "conflict"){
+      var s = res.s;
+      backupBeforeConflict_(cloneDefault(state));
+      var base = loadBase_();
+      if (base){
+        // 他の端末の更新を捨てず、この端末の入力も捨てず、両方を合流させて送り直す
+        applyLoadedState(mergeStates_(base, state, s));
+        state.rev = s.rev || 0;
+        saveLocal();
+        saveBase_(s);
+        setSync("他の端末の更新と合流しました", "conflict");
+        render(); renderBoardTable();
+        return "retry";
+      }
+      // 合流の元になる記録が無い（この端末で初めて競合した）ときだけ、サーバー側を採用する
+      applyLoadedState(s);
+      saveLocal();
+      saveBase_(s);
+      saveDirty = false;
+      setUnsynced_(false);
+      setSync("他の端末の更新を検出・最新を反映", "conflict");
+      render(); renderBoardTable();
+      return "ok";
+    }
     setUnsynced_(true);
-    setSync("オフライン（未送信あり）", "warn");
+    setSync(res.msg || "未反映", res.offline ? "warn" : "err");
+    return "fail";
   });
 }
 
@@ -782,6 +884,7 @@ function load(timeoutMs){
       if (s && !s.error){
         applyLoadedState(s);
         saveLocal();
+        saveBase_(s);
         setUnsynced_(false);
         setSync("同期済み", "ok");
         flushPendingLogs();  // オンラインに戻れたので、溜まっていた日次ログも送る
