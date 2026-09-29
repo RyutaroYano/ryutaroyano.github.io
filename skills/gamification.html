@@ -695,6 +695,13 @@ function saveBase_(s){
 function loadBase_(){
   try { var r = localStorage.getItem(BASE_KEY); return r ? JSON.parse(r) : null; } catch(e){ return null; }
 }
+// 基準点がまだ無い端末（この仕組みを初めて動かす時）は、起動時点の内容を基準点として
+// 覚えさせておく。これが無いと、その後の初めての競合で「この端末が何を増やしたか」を
+// 計算できず、増分を正しく合流できない。未送信の変更が残っている場合は、その変更が
+// まだ基準点に含まれていない状態のはずなので、ここでは覚えさせない。
+function ensureBase_(){
+  if (!hasUnsynced && !loadBase_()) saveBase_(cloneDefault(state));
+}
 
 // base（最後に一致を確認できた内容）→local（今の内容）で増減した分を、server（他端末の最新）へ足して返す。
 // 数値（点数・在庫・日ごとの回数）は差分を足し、ログは新しく増えた分を先頭に足し、
@@ -831,26 +838,19 @@ function pushOnce_(){
     if (res.kind === "conflict"){
       var s = res.s;
       backupBeforeConflict_(cloneDefault(state));
-      var base = loadBase_();
-      if (base){
-        // 他の端末の更新を捨てず、この端末の入力も捨てず、両方を合流させて送り直す
-        applyLoadedState(mergeStates_(base, state, s));
-        state.rev = s.rev || 0;
-        saveLocal();
-        saveBase_(s);
-        setSync("他の端末の更新と合流しました", "conflict");
-        render(); renderBoardTable();
-        return "retry";
-      }
-      // 合流の元になる記録が無い（この端末で初めて競合した）ときだけ、サーバー側を採用する
-      applyLoadedState(s);
+      // 基準点（最後にサーバーと一致していた内容）がまだこの端末に無い場合でも、
+      // サーバー側を採用してこの端末の入力を捨てることはしない。基準点を空{}とみなして
+      // 合流する（＝この端末の値をそのまま増分として足す）。この端末の設定変更が
+      // 二重に加算される可能性はあるが、入力そのものが消えるよりずっとまし。
+      var base = loadBase_() || {};
+      // 他の端末の更新を捨てず、この端末の入力も捨てず、両方を合流させて送り直す
+      applyLoadedState(mergeStates_(base, state, s));
+      state.rev = s.rev || 0;
       saveLocal();
       saveBase_(s);
-      saveDirty = false;
-      setUnsynced_(false);
-      setSync("他の端末の更新を検出・最新を反映", "conflict");
+      setSync("他の端末の更新と合流しました", "conflict");
       render(); renderBoardTable();
-      return "ok";
+      return "retry";
     }
     setUnsynced_(true);
     setSync(res.msg || "未反映", res.offline ? "warn" : "err");
@@ -2156,6 +2156,7 @@ function startApp(){
   // ネットワーク通信を待たず、まずこの端末に保存済みの直前の状態を同期的に反映してから描画する。
   // これをやらないと、初期値（DEFAULT_*）が一瞬映ってから本物のデータに切り替わってチラつく。
   loadLocal();
+  ensureBase_();
   renderBoardTable();
   render();
   applyCollapseState();
