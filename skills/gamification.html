@@ -14,10 +14,14 @@
     font-family: 'Hiragino Sans','Noto Sans JP',sans-serif; color: #2b2b2b;
     -webkit-user-select: none; user-select: none;
   }
-  .wrap { max-width: 480px; margin: 0 auto; padding: 20px 16px 48px; position:relative; }
-  .settingsGear { position:absolute; top:20px; right:16px; background:none; border:none; font-size:20px; cursor:pointer; opacity:.55; padding:4px; }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 0 16px 48px; position:relative; }
+  .stickyTop { position:sticky; top:0; z-index:20; background:#f4f4f7; padding:14px 0 8px; margin-bottom:6px; }
+  .stickyTop h1 { font-size:22px; }
+  .stickyTop .sub { margin-bottom:8px; }
+  .stickyTop .pointCard { padding:10px 16px; }
+  .settingsGear { position:absolute; top:14px; right:16px; background:none; border:none; font-size:20px; cursor:pointer; opacity:.55; padding:4px; }
   .settingsGear:active { opacity:.85; }
-  .reloadBtn { position:absolute; top:20px; left:16px; background:none; border:none; font-size:20px; cursor:pointer; opacity:.55; padding:4px; }
+  .reloadBtn { position:absolute; top:14px; left:16px; background:none; border:none; font-size:20px; cursor:pointer; opacity:.55; padding:4px; }
   .reloadBtn:active { opacity:.85; }
   .reloadBtn:disabled { opacity:.25; cursor:default; }
   .reloadBtn.spinning { animation:reloadSpin .7s linear infinite; }
@@ -73,6 +77,10 @@
   .actionBtn.capped .miniHint { color:#bbb; }
   .yesterdayBtn { flex-shrink:0; margin-bottom:10px; background:#fff; border:1.5px solid #ddd; color:#888; border-radius:8px; padding:4px 10px; font-size:11.5px; font-weight:700; cursor:pointer; }
   .yesterdayBtn:active { background:#f7f7f8; }
+  .violationBtn { color:#c0392b; border-color:#e8b4ae; }
+  .violationBtn:active { background:#fdf1f0; }
+  .atariPickBtn.selectedViolation { border-color:#c0392b; background:#fdf1f0; }
+  .modalConfirm.danger { background:#c0392b; }
   .yesterdayStepVal { min-width:22px; text-align:center; font-weight:700; font-size:14px; color:#3a3a5c; }
   .yesterdayFloorNote { font-size:11px; color:#aaa; }
 
@@ -217,16 +225,18 @@
 </div>
 
 <div class="wrap">
-  <button class="reloadBtn" id="reloadBtn" aria-label="更新" title="更新">🔄</button>
-  <button class="settingsGear" id="settingsBtn" aria-label="設定" title="設定">⚙️</button>
-  <h1>🎲 ゲーミフィケーション</h1>
-  <p class="sub">行動を貯めて、サイコロで報酬を解禁する</p>
+  <div class="stickyTop">
+    <button class="reloadBtn" id="reloadBtn" aria-label="更新" title="更新">🔄</button>
+    <button class="settingsGear" id="settingsBtn" aria-label="設定" title="設定">⚙️</button>
+    <h1>🎲 ゲーミフィケーション</h1>
+    <p class="sub">行動を貯めて、サイコロで報酬を解禁する</p>
 
-  <div class="pointCard">
-    <div class="pointLabel">いまの点数<span class="syncStatus" id="syncStatus"></span></div>
-    <div class="pointValueRow">
-      <span class="pointValue"><span id="points">0</span><span class="pointUnit">点</span></span>
-      <span class="pointFlash" id="flash" style="display:none"></span>
+    <div class="pointCard">
+      <div class="pointLabel">いまの点数<span class="syncStatus" id="syncStatus"></span></div>
+      <div class="pointValueRow">
+        <span class="pointValue"><span id="points">0</span><span class="pointUnit">点</span></span>
+        <span class="pointFlash" id="flash" style="display:none"></span>
+      </div>
     </div>
   </div>
 
@@ -289,6 +299,19 @@
     </div>
   </div>
 
+  <div class="modalOverlay" id="violationModal">
+    <div class="modalCard">
+      <div class="modalTitle">⚠️ ルール違反</div>
+      <div class="modalSub">ストックが無いのに使ってしまった報酬を選んでください。選ぶと点数が引かれます。</div>
+      <div class="atariPickList" id="violationPickList"></div>
+      <div class="manualResult" id="violationResult">報酬を選んでください</div>
+      <div class="modalBtnRow">
+        <button class="modalClose" id="violationClose">閉じる</button>
+        <button class="modalConfirm danger" id="violationConfirm" disabled>記録する</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modalOverlay fullscreen" id="settingsModal">
     <div class="modalCard">
       <div class="modalTitle">⚙️ 設定</div>
@@ -341,7 +364,10 @@
   </div>
 
   <div class="section" id="stockSection">
-    <button class="secToggle" id="stockToggle" aria-expanded="true"><span class="secChevron">▾</span>報酬ストック</button>
+    <div class="secTitleRow">
+      <button class="secToggle" id="stockToggle" aria-expanded="true"><span class="secChevron">▾</span>報酬ストック</button>
+      <button class="yesterdayBtn violationBtn" id="violationBtn">⚠️ ルール違反</button>
+    </div>
     <div class="stockList" id="stockList"></div>
   </div>
 
@@ -702,7 +728,8 @@ function loadBase_(){
 function mergeStates_(base, local, server){
   var m = JSON.parse(JSON.stringify(server));
   function num(v){ return Number(v) || 0; }
-  ["points","earnedTotal","miyazaki"].forEach(function(k){
+  m.points = num(server.points) + num(local.points) - num(base.points);  // ルール違反でマイナスになり得るので0で切らない
+  ["earnedTotal","miyazaki"].forEach(function(k){
     m[k] = Math.max(0, num(server[k]) + num(local[k]) - num(base[k]));
   });
   m.stock = m.stock || {};
@@ -1161,6 +1188,66 @@ function pickAtariReward(rk){
 
 function closeAtariModal(){
   document.getElementById("atariModal").classList.remove("show");
+}
+
+// ルール違反：ストックが無いのに報酬を使ってしまったときの自己申告。自分で押したときだけ点数を引く
+// （やらなかったことへの自動減点ではない）。誤タップで減点しないよう、報酬を選んでから別ボタンで確定する。
+var PENALTY_PT = 4;
+var violationPick = null;
+
+function openViolationModal(){
+  violationPick = null;
+  var list = document.getElementById("violationPickList");
+  list.innerHTML = "";
+  state.rewards.filter(function(r){ return r.id !== "atari"; }).forEach(function(r){
+    var b = document.createElement("button");
+    b.className = "atariPickBtn";
+    var emojiSpan = document.createElement("span");
+    emojiSpan.className = "atariPickEmoji";
+    emojiSpan.textContent = r.emoji;
+    var nameSpan = document.createElement("span");
+    nameSpan.className = "atariPickName";
+    nameSpan.textContent = r.name;
+    b.appendChild(emojiSpan);
+    b.appendChild(nameSpan);
+    b.onclick = function(){
+      violationPick = r.id;
+      Array.prototype.forEach.call(list.children, function(el){ el.classList.remove("selectedViolation"); });
+      b.classList.add("selectedViolation");
+      updateViolationResult();
+    };
+    list.appendChild(b);
+  });
+  updateViolationResult();
+  document.getElementById("violationModal").classList.add("show");
+}
+
+function updateViolationResult(){
+  var res = document.getElementById("violationResult");
+  var ok = document.getElementById("violationConfirm");
+  if (!violationPick){
+    res.textContent = "報酬を選んでください";
+    ok.disabled = true;
+    return;
+  }
+  var r = rewardsIndex[violationPick];
+  res.textContent = r.emoji + r.name + " → -" + PENALTY_PT + "点（" + (state.points - PENALTY_PT) + "点になります）";
+  ok.disabled = false;
+}
+
+function confirmViolation(){
+  if (!violationPick) return;
+  var r = rewardsIndex[violationPick];
+  state.points -= PENALTY_PT;
+  state.log.unshift({ date:todayStr(), type:"penalty", detail:"⚠️ ルール違反："+r.emoji+r.name, pt:-PENALTY_PT });
+  state.log = state.log.slice(0,200);
+  save(); render();
+  closeViolationModal();
+  showFlash("-" + PENALTY_PT + "点");
+}
+
+function closeViolationModal(){
+  document.getElementById("violationModal").classList.remove("show");
 }
 
 var manualPick = { d1:null, d2:null };
@@ -2083,6 +2170,7 @@ function render(){
       var right = null;
       if (e.type==="earn"){ right = document.createElement("span"); right.className="logEarn"; right.textContent="+"+e.pt; }
       else if (e.type==="roll"){ right = document.createElement("span"); right.className="logRoll"; right.textContent=e.pt; }
+      else if (e.type==="penalty"){ right = document.createElement("span"); right.className="logRoll"; right.textContent=e.pt; }
       else if (e.type==="use"){ right = document.createElement("span"); right.className="logUse"; right.textContent="使用"; }
       else if (e.type==="manual"){ right = document.createElement("span"); right.className="logRoll"; right.textContent=e.pt; }
       else if (e.type==="milestone"){ right = document.createElement("span"); right.className="logMilestone"; right.textContent="🎧"; }
@@ -2124,6 +2212,14 @@ document.getElementById("atariClose").onclick = function(e){ e.stopPropagation()
 document.querySelector("#atariModal .modalCard").onclick = function(e){ e.stopPropagation(); };
 document.getElementById("atariModal").onclick = function(e){
   if (e.target === document.getElementById("atariModal")) closeAtariModal();
+};
+
+document.getElementById("violationBtn").onclick = openViolationModal;
+document.getElementById("violationClose").onclick = function(e){ e.stopPropagation(); closeViolationModal(); };
+document.getElementById("violationConfirm").onclick = function(e){ e.stopPropagation(); confirmViolation(); };
+document.querySelector("#violationModal .modalCard").onclick = function(e){ e.stopPropagation(); };
+document.getElementById("violationModal").onclick = function(e){
+  if (e.target === document.getElementById("violationModal")) closeViolationModal();
 };
 
 document.getElementById("pointsToggle").onclick = function(){
