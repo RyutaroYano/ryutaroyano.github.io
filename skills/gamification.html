@@ -77,6 +77,10 @@
   .actionBtn.capped .miniHint { color:#bbb; }
   .yesterdayBtn { flex-shrink:0; margin-bottom:10px; background:#fff; border:1.5px solid #ddd; color:#888; border-radius:8px; padding:4px 10px; font-size:11.5px; font-weight:700; cursor:pointer; }
   .yesterdayBtn:active { background:#f7f7f8; }
+  .penaltyGate { z-index:300; background:rgba(20,20,30,0.82); }
+  .penaltyGateText { font-size:20px; font-weight:700; text-align:center; line-height:1.5; padding:18px 8px; min-height:3em; color:#c0392b; }
+  .penaltyGateText.spinning { color:#999; }
+  .penaltyWeightHint { font-size:11.5px; color:#888; font-weight:700; }
   .violationBtn { color:#c0392b; border-color:#e8b4ae; }
   .violationBtn:active { background:#fdf1f0; }
   .atariPickBtn.selectedViolation { border-color:#c0392b; background:#fdf1f0; }
@@ -302,12 +306,23 @@
   <div class="modalOverlay" id="violationModal">
     <div class="modalCard">
       <div class="modalTitle">⚠️ ルール違反</div>
-      <div class="modalSub">ストックが無いのに使ってしまった報酬を選んでください。選ぶと点数が引かれます。</div>
+      <div class="modalSub">ストックが無いのに使ってしまった報酬を選んでください。選ぶと罰ゲームのルーレットが回ります。</div>
       <div class="atariPickList" id="violationPickList"></div>
       <div class="manualResult" id="violationResult">報酬を選んでください</div>
       <div class="modalBtnRow">
         <button class="modalClose" id="violationClose">閉じる</button>
-        <button class="modalConfirm danger" id="violationConfirm" disabled>記録する</button>
+        <button class="modalConfirm danger" id="violationConfirm" disabled>記録してルーレットを回す</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modalOverlay penaltyGate" id="penaltyGate">
+    <div class="modalCard">
+      <div class="modalTitle">⚠️ 罰ゲーム</div>
+      <div class="modalSub">やるまでほかの操作はできません。その場でやって、終わったら押してください。</div>
+      <div class="penaltyGateText" id="penaltyGateText"></div>
+      <div class="modalBtnRow">
+        <button class="modalConfirm danger" id="penaltyDoneBtn" style="flex:1;" disabled>やった</button>
       </div>
     </div>
   </div>
@@ -336,6 +351,14 @@
         <div class="modalSub">サイコロとは別枠で、累積獲得点が指定した点数をまたぐごとに1つ解放されます。無効にすると表示されなくなります。</div>
         <div id="specialSettings"></div>
         <div class="settingsValidation" id="specialValidation"></div>
+      </div>
+
+      <div class="settingsSection">
+        <div class="settingsSectionTitle">罰ゲーム</div>
+        <div class="modalSub">ルール違反を記録したとき、ルーレットで1つ決まります。「重さ」(1〜10)が大きいほど出にくくなります。その場ですぐできるものがおすすめです。</div>
+        <div class="settingsList" id="penaltiesSettingsList"></div>
+        <button class="settingsAddBtn" id="addPenaltyBtn">＋ 罰ゲームを追加</button>
+        <div class="settingsValidation" id="penaltiesValidation"></div>
       </div>
 
       <div class="settingsSection">
@@ -526,6 +549,15 @@ var DEFAULT_REWARDS = [
 // （もともと「10点ごとに海野さんのセッション音声」という固定枠だったが、
 //  使う内容を自分で決められるように設定可能にした。state.miyazaki を解放数のカウンタとして流用する）
 var DEFAULT_SPECIAL = { emoji:"🎧", name:"海野さんのセッション音声", threshold:10, enabled:true };
+// 罰ゲーム：heavyは「重さ」(1〜10)。ルーレットでは重いほど出にくい（出やすさ＝11-重さ）。
+var DEFAULT_PENALTIES = [
+  { id:"pen1", text:"ありがとうを100回言う", heavy:1 },
+  { id:"pen2", text:"1分間深呼吸を3回して、冷たい水を1杯飲み、その場で10秒ダッシュ", heavy:3 },
+  { id:"pen3", text:"腕立て伏せ30回", heavy:4 },
+  { id:"pen4", text:"15分歩く", heavy:6 },
+  { id:"pen5", text:"家族か友達に、感謝のメッセージを1通送る", heavy:8 },
+  { id:"pen6", text:"街中で知らない人を1人、笑顔にする", heavy:10 }
+];
 
 // 盤面（線対称・優先順で読める）：設定画面の「盤面編集」でマス単位に編集する。
 var DEFAULT_BOARD = [
@@ -578,6 +610,8 @@ var state = {
   rewards:cloneDefault(DEFAULT_REWARDS),
   board:cloneDefault(DEFAULT_BOARD),
   special:cloneDefault(DEFAULT_SPECIAL),
+  penalties:cloneDefault(DEFAULT_PENALTIES),
+  pendingPenalty:null,
   stock:null,
   elementTagsSeeded:false,
   // rev: サーバー（GAS）だけが増やす改訂番号。lastWriter: 直前にこの内容を書き込もうと
@@ -663,6 +697,10 @@ function applyLoadedState(s){
   state.lastWriter = s.lastWriter||"";
   // 旧データ（special未設定）は従来どおり「10点ごとに海野さんのセッション音声」で動かす
   state.special = Object.assign(cloneDefault(DEFAULT_SPECIAL), s.special||{});
+  // 罰ゲーム一覧は空にもできるので、配列でありさえすればそのまま使う（未設定の旧データだけ既定を補う）
+  state.penalties = Array.isArray(s.penalties) ? s.penalties : cloneDefault(DEFAULT_PENALTIES);
+  // 引いた罰ゲームが未完了のまま残っている状態（端末をまたいで共有される）
+  state.pendingPenalty = s.pendingPenalty || null;
   state.elementTagsSeeded = !!s.elementTagsSeeded;
 }
 
@@ -758,9 +796,13 @@ function mergeStates_(base, local, server){
   (base.log || []).forEach(function(e){ baseLog[JSON.stringify(e)] = true; });
   var added = (local.log || []).filter(function(e){ return !baseLog[JSON.stringify(e)]; });
   m.log = added.concat(server.log || []).slice(0, 200);
-  ["actions","rewards","board","special"].forEach(function(k){
+  ["actions","rewards","board","special","penalties"].forEach(function(k){
     if (JSON.stringify(local[k]) !== JSON.stringify(base[k])) m[k] = local[k];
   });
+  // 罰ゲームの引き直し・完了は、この端末で変えていたらこの端末の内容を採用する
+  if (JSON.stringify(local.pendingPenalty || null) !== JSON.stringify(base.pendingPenalty || null)){
+    m.pendingPenalty = local.pendingPenalty || null;
+  }
   if ((local.lastSettled || "") > (server.lastSettled || "")) m.lastSettled = local.lastSettled;
   m.elementTagsSeeded = !!(server.elementTagsSeeded || local.elementTagsSeeded);
   return m;
@@ -1190,9 +1232,9 @@ function closeAtariModal(){
   document.getElementById("atariModal").classList.remove("show");
 }
 
-// ルール違反：ストックが無いのに報酬を使ってしまったときの自己申告。自分で押したときだけ点数を引く
-// （やらなかったことへの自動減点ではない）。誤タップで減点しないよう、報酬を選んでから別ボタンで確定する。
-var PENALTY_PT = 4;
+// ルール違反：ストックが無いのに報酬を使ってしまったときの自己申告。自分で押したときだけ発動する
+// （やらなかったことへの自動ペナルティではない）。点数は引かず、ルーレットで罰ゲームを1つ決める。
+// 誤タップで発動しないよう、報酬を選んでから別ボタンで確定する。
 var violationPick = null;
 
 function openViolationModal(){
@@ -1231,19 +1273,91 @@ function updateViolationResult(){
     return;
   }
   var r = rewardsIndex[violationPick];
-  res.textContent = r.emoji + r.name + " → -" + PENALTY_PT + "点（" + (state.points - PENALTY_PT) + "点になります）";
+  res.textContent = r.emoji + r.name + (state.penalties.length ? " → 罰ゲームのルーレットを回します" : " → 罰ゲームが未設定です（記録だけ残ります）");
   ok.disabled = false;
+}
+
+// 重さ(1〜10)が大きいほど出にくい。出やすさ＝11-重さ。
+function penaltyWeight_(p){
+  var h = Math.min(10, Math.max(1, parseInt(p.heavy,10) || 1));
+  return 11 - h;
+}
+function pickPenalty_(){
+  var list = state.penalties || [];
+  var total = list.reduce(function(s,p){ return s + penaltyWeight_(p); }, 0);
+  if (!list.length || total <= 0) return null;
+  var x = Math.random() * total;
+  for (var i=0; i<list.length; i++){
+    x -= penaltyWeight_(list[i]);
+    if (x < 0) return list[i];
+  }
+  return list[list.length-1];
 }
 
 function confirmViolation(){
   if (!violationPick) return;
   var r = rewardsIndex[violationPick];
-  state.points -= PENALTY_PT;
-  state.log.unshift({ date:todayStr(), type:"penalty", detail:"⚠️ ルール違反："+r.emoji+r.name, pt:-PENALTY_PT });
+  var pen = pickPenalty_();
+  state.log.unshift({ date:todayStr(), type:"penalty", detail:"⚠️ ルール違反："+r.emoji+r.name+(pen ? " → "+pen.text : ""), pt:0 });
   state.log = state.log.slice(0,200);
-  save(); render();
+  // 引いた結果はその場でstateに入れる（閉じ直しや別端末で引き直せないように）。演出は見た目だけ。
+  if (pen) state.pendingPenalty = { id:pen.id, text:pen.text, heavy:pen.heavy, at:Date.now() };
+  save();
   closeViolationModal();
-  showFlash("-" + PENALTY_PT + "点");
+  render();
+  if (pen) spinPenaltyRoulette_(pen.text);
+}
+
+var penaltySpinToken = 0;
+// ルーレット演出：一覧の文言をだんだん遅くしながら切り替え、最後に決まった罰ゲームで止める。
+function spinPenaltyRoulette_(finalText){
+  var textEl = document.getElementById("penaltyGateText");
+  var doneBtn = document.getElementById("penaltyDoneBtn");
+  var texts = (state.penalties || []).map(function(p){ return p.text; });
+  var token = ++penaltySpinToken;
+  doneBtn.disabled = true;
+  textEl.classList.add("spinning");
+  var step = 0, total = 16;
+  (function tick(){
+    if (token !== penaltySpinToken) return;
+    if (step >= total){
+      textEl.textContent = finalText;
+      textEl.classList.remove("spinning");
+      doneBtn.disabled = false;
+      return;
+    }
+    textEl.textContent = texts[Math.floor(Math.random()*texts.length)] || finalText;
+    step++;
+    setTimeout(tick, 60 + step*step*1.6);
+  })();
+}
+
+// 未完了の罰ゲームがある間は、全画面で他の操作を止める。状態はstateにあるので、
+// 同期後は別端末でも同じ罰ゲームが出る（端末間で完了も共有される）。
+function renderPenaltyGate(){
+  var gate = document.getElementById("penaltyGate");
+  var pp = state.pendingPenalty;
+  if (!pp){
+    penaltySpinToken++;
+    gate.classList.remove("show");
+    return;
+  }
+  if (!gate.classList.contains("show")){
+    gate.classList.add("show");
+    document.getElementById("penaltyGateText").textContent = pp.text;
+    document.getElementById("penaltyGateText").classList.remove("spinning");
+    document.getElementById("penaltyDoneBtn").disabled = false;
+  }
+}
+
+function completePenalty(){
+  var pp = state.pendingPenalty;
+  if (!pp) return;
+  state.log.unshift({ date:todayStr(), type:"penaltyDone", detail:"✅ 罰ゲーム完了："+pp.text, pt:0 });
+  state.log = state.log.slice(0,200);
+  state.pendingPenalty = null;
+  save(); render();
+  showFlash("✅ 完了");
 }
 
 function closeViolationModal(){
@@ -1517,6 +1631,7 @@ var actionsDraft = [];
 var rewardsDraft = [];
 var boardDraft = [];
 var specialDraft = {};
+var penaltiesDraft = [];
 
 function flashButtonLabel(btn, tempText){
   if (!btn) return;
@@ -1530,9 +1645,11 @@ function openSettings(){
   rewardsDraft = cloneDefault(state.rewards);
   boardDraft = cloneDefault(state.board);
   specialDraft = Object.assign(cloneDefault(DEFAULT_SPECIAL), cloneDefault(state.special || {}));
+  penaltiesDraft = cloneDefault(state.penalties || []);
   renderActionsSettings();
   renderRewardsSettings();
   renderSpecialSettings();
+  renderPenaltiesSettings();
   renderBoardEditor();
   document.getElementById("settingsModal").classList.add("show");
   // 前日分登録画面と同じく、開いている間は背景側のスクロールを止めて、
@@ -1833,6 +1950,88 @@ function renderSpecialSettings(){
   updateSpecialValidation();
 }
 
+// 罰ゲーム一覧の編集欄。重さが大きいほどルーレットで出にくい（出やすさ＝11-重さ）。
+function renderPenaltiesSettings(){
+  var list = document.getElementById("penaltiesSettingsList");
+  list.innerHTML = "";
+  penaltiesDraft.forEach(function(p){
+    var row = document.createElement("div");
+    row.className = "settingsRow";
+    var line1 = document.createElement("div");
+    line1.className = "settingsRowLine1";
+    var textInput = document.createElement("input");
+    textInput.type = "text"; textInput.className = "settingsTextInput"; textInput.placeholder = "罰ゲームの内容（その場でできること）";
+    textInput.value = p.text;
+    textInput.oninput = function(){ p.text = textInput.value; updatePenaltiesValidation(); };
+    var delBtn = document.createElement("button");
+    delBtn.className = "settingsDeleteBtn"; delBtn.textContent = "🗑"; delBtn.title = "削除";
+    delBtn.onclick = function(){
+      var i = penaltiesDraft.indexOf(p);
+      if (i>=0) penaltiesDraft.splice(i,1);
+      renderPenaltiesSettings();
+    };
+    line1.appendChild(textInput); line1.appendChild(delBtn);
+
+    var line2 = document.createElement("div");
+    line2.className = "settingsRowLine2";
+    var hLabel = document.createElement("label");
+    hLabel.className = "settingsToggleLabel";
+    var hInput = document.createElement("input");
+    hInput.type = "number"; hInput.min = "1"; hInput.max = "10"; hInput.step = "1";
+    hInput.className = "settingsNumInput"; hInput.style.width = "3.4em";
+    hInput.value = p.heavy;
+    var hint = document.createElement("span");
+    hint.className = "penaltyWeightHint";
+    hInput.oninput = function(){
+      p.heavy = parseInt(hInput.value,10) || 0;
+      updatePenaltiesValidation();
+      renderPenaltyHints_();
+    };
+    hLabel.appendChild(document.createTextNode("重さ"));
+    hLabel.appendChild(hInput);
+    line2.appendChild(hLabel); line2.appendChild(hint);
+    row._hint = hint; row._p = p;
+    row.className = "settingsRow penaltyRow";
+    row.appendChild(line1); row.appendChild(line2);
+    list.appendChild(row);
+  });
+  renderPenaltyHints_();
+  updatePenaltiesValidation();
+}
+
+function renderPenaltyHints_(){
+  var total = penaltiesDraft.reduce(function(s,p){ return s + penaltyWeight_(p); }, 0);
+  Array.prototype.forEach.call(document.querySelectorAll("#penaltiesSettingsList .penaltyRow"), function(row){
+    if (!row._hint) return;
+    var w = penaltyWeight_(row._p);
+    row._hint.textContent = total > 0 ? "出る確率 約" + Math.round(w/total*100) + "%" : "";
+  });
+}
+
+function addPenaltyDraft(){
+  penaltiesDraft.push({ id:"pen"+Date.now().toString(36), text:"", heavy:5 });
+  renderPenaltiesSettings();
+}
+
+function getPenaltiesDraftValidation(){
+  if (penaltiesDraft.length === 0) return { ok:true, message:"罰ゲームなし（ルール違反は記録だけ残ります）" };
+  if (penaltiesDraft.some(function(p){ return !(p.text||"").trim(); })){
+    return { ok:false, message:"内容が空の罰ゲームがあります" };
+  }
+  if (penaltiesDraft.some(function(p){ return !(p.heavy >= 1 && p.heavy <= 10); })){
+    return { ok:false, message:"重さは1〜10にしてください" };
+  }
+  return { ok:true, message:penaltiesDraft.length+"件（OK）" };
+}
+
+function updatePenaltiesValidation(){
+  var panel = document.getElementById("penaltiesValidation");
+  var result = getPenaltiesDraftValidation();
+  panel.textContent = result.message;
+  panel.className = "settingsValidation " + (result.ok ? "ok" : "err");
+  updateSettingsSaveState();
+}
+
 function getSpecialDraftValidation(){
   if (!specialDraft.enabled) return { ok:true, message:"無効（メイン画面に表示しない）" };
   if (!(specialDraft.name||"").trim()) return { ok:false, message:"特別報酬の名前が空です" };
@@ -1854,7 +2053,7 @@ function updateSpecialValidation(){
 function updateSettingsSaveState(){
   var btn = document.getElementById("saveSettingsBtn");
   if (!btn) return;
-  btn.disabled = !(getActionsDraftValidation().ok && getRewardsDraftValidation().ok && getSpecialDraftValidation().ok);
+  btn.disabled = !(getActionsDraftValidation().ok && getRewardsDraftValidation().ok && getSpecialDraftValidation().ok && getPenaltiesDraftValidation().ok);
 }
 
 function saveAllSettings(){
@@ -1879,6 +2078,9 @@ function saveAllSettings(){
   // 特別報酬
   state.special = cloneDefault(specialDraft);
   if (state.special.threshold < 1) state.special.threshold = DEFAULT_SPECIAL.threshold;
+
+  // 罰ゲーム一覧（引いてある未完了の罰ゲームには影響しない）
+  state.penalties = cloneDefault(penaltiesDraft);
 
   // 盤面
   state.board = cloneDefault(boardDraft);
@@ -2028,6 +2230,7 @@ function renderBoardTable(){
 
 function render(){
   document.getElementById("points").textContent = state.points;
+  renderPenaltyGate();
 
   // 加点ボタン。1日1回／複数回OKでセクションを分けず、state.actionsの並び順のまま
   // 上から順に表示する（実際にやる順番と一致させたいという要望のため）。
@@ -2170,7 +2373,8 @@ function render(){
       var right = null;
       if (e.type==="earn"){ right = document.createElement("span"); right.className="logEarn"; right.textContent="+"+e.pt; }
       else if (e.type==="roll"){ right = document.createElement("span"); right.className="logRoll"; right.textContent=e.pt; }
-      else if (e.type==="penalty"){ right = document.createElement("span"); right.className="logRoll"; right.textContent=e.pt; }
+      else if (e.type==="penalty"){ right = document.createElement("span"); right.className="logRoll"; right.textContent="罰"; }
+      else if (e.type==="penaltyDone"){ right = document.createElement("span"); right.className="logEarn"; right.textContent="✅"; }
       else if (e.type==="use"){ right = document.createElement("span"); right.className="logUse"; right.textContent="使用"; }
       else if (e.type==="manual"){ right = document.createElement("span"); right.className="logRoll"; right.textContent=e.pt; }
       else if (e.type==="milestone"){ right = document.createElement("span"); right.className="logMilestone"; right.textContent="🎧"; }
@@ -2214,6 +2418,7 @@ document.getElementById("atariModal").onclick = function(e){
   if (e.target === document.getElementById("atariModal")) closeAtariModal();
 };
 
+document.getElementById("penaltyDoneBtn").onclick = completePenalty;
 document.getElementById("violationBtn").onclick = openViolationModal;
 document.getElementById("violationClose").onclick = function(e){ e.stopPropagation(); closeViolationModal(); };
 document.getElementById("violationConfirm").onclick = function(e){ e.stopPropagation(); confirmViolation(); };
@@ -2237,6 +2442,7 @@ document.getElementById("settingsModal").onclick = function(e){
   if (e.target === document.getElementById("settingsModal")) closeSettings();
 };
 document.getElementById("addActionBtn").onclick = function(e){ e.stopPropagation(); addActionDraft(); };
+document.getElementById("addPenaltyBtn").onclick = function(e){ e.stopPropagation(); addPenaltyDraft(); };
 document.getElementById("addRewardBtn").onclick = function(e){ e.stopPropagation(); addRewardDraft(); };
 document.getElementById("saveSettingsBtn").onclick = function(e){ e.stopPropagation(); saveAllSettings(); };
 
