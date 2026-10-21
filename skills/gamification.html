@@ -767,6 +767,20 @@ function ensureBase_(){
   if (!hasUnsynced && !loadBase_()) saveBase_(cloneDefault(state));
 }
 
+// この端末が最後に確認できた「サーバー上の最新の書き込み者(lastWriter)」。GAS側の保護(rev)に
+// 頼らなくても、書き込む直前にサーバーの今のlastWriterと比べれば、他の端末が先に書いて
+// いないかが分かる。
+var SRVWRITER_KEY = "gamification_srvwriter_v1";
+function getKnownWriter_(){
+  try { var v = localStorage.getItem(SRVWRITER_KEY); return v === null ? null : v; } catch(e){ return null; }
+}
+function setKnownWriter_(w){
+  try { localStorage.setItem(SRVWRITER_KEY, w || ""); } catch(e){}
+}
+// 今回の起動（または前回の復帰）で、サーバーの最新を確認できているか。確認できていない
+// 古い状態のまま日またぎ処理を動かすと、古い記録でスプレッドシートの前日の行を上書きしてしまう。
+var freshSynced = false;
+
 // base（最後に一致を確認できた内容）→local（今の内容）で増減した分を、server（他端末の最新）へ足して返す。
 // 数値（点数・在庫・日ごとの回数）は差分を足し、ログは新しく増えた分を先頭に足し、
 // 設定（項目・報酬・盤面・特別報酬）はこの端末で編集していたらこの端末の内容を採用する。
@@ -845,7 +859,7 @@ function runSaveLoop_(mergeCount){
   });
 }
 
-function pollVerify_(token, sentRev, attempt){
+function pollVerify_(token, sentRev, attempt, known){
   return new Promise(function(resolve){
     setTimeout(function(){
       fetch(gasUrl() + (GAS_SECRET ? "&" : "?") + "t=" + Date.now(), { method:"GET" })
@@ -853,22 +867,74 @@ function pollVerify_(token, sentRev, attempt){
         .then(function(s){
           if (!s || s.error){ resolve({ kind:"fail", msg:"未反映" }); return; }
           if (s.lastWriter === token){ resolve({ kind:"ok", s:s }); return; }
-          if ((s.rev || 0) === sentRev){
-            // revが変わっていない＝まだ自分の書き込みが届いていないだけ（GASの起動待ちなど）。
-            // ここで「競合」と決めつけると、自分の入力を捨ててしまうので、少し待って見直す。
-            if (attempt >= 4){ resolve({ kind:"fail", msg:"未反映" }); return; }
-            pollVerify_(token, sentRev, attempt + 1).then(resolve);
+          var mine = !!(s.lastWriter && myTokens.indexOf(s.lastWriter) !== -1);
+          if ((s.rev || 0) !== sentRev){
+            if (mine){ resolve({ kind:"mine", s:s }); return; }
+            resolve({ kind:"conflict", s:s });
             return;
           }
-          if (s.lastWriter && myTokens.indexOf(s.lastWriter) !== -1){ resolve({ kind:"mine", s:s }); return; }
-          resolve({ kind:"conflict", s:s });
+          // revが変わっていない。まだ自分の書き込みが届いていないだけ（GASの起動待ちなど）かもしれないので、
+          // すぐ「競合」と決めつけて自分の入力を捨てることはせず、少し待って見直す。
+          if (attempt < 4){ pollVerify_(token, sentRev, attempt + 1, known).then(resolve); return; }
+          // 待っても自分の書き込みが乗らない。サーバーの書き込み者が確認時から変わっていれば、
+          // 他の端末の書き込みが先に乗った（revを数えない旧GASではrevで分からない）ので合流する。
+          if (!mine && (s.lastWriter || "") !== (known || "")){ resolve({ kind:"conflict", s:s }); return; }
+          resolve({ kind:"fail", msg:"未反映" });
         })
         .catch(function(){ resolve({ kind:"fail", msg:"オフライン（未送信あり）", offline:true }); });
     }, 1500);
   });
 }
 
+// 他の端末の書き込みが先にあった。サーバーの最新を捨てず、この端末の入力も捨てず、
+// 両方を合流させて送り直す。
+function resolveConflict_(s){
+  backupBeforeConflict_(cloneDefault(state));
+  // 基準点（最後にサーバーと一致していた内容）がまだこの端末に無い場合でも、
+  // サーバー側を採用してこの端末の入力を捨てることはしない。基準点を空{}とみなして
+  // 合流する（＝この端末の値をそのまま増分として足す）。この端末の設定変更が
+  // 二重に加算される可能性はあるが、入力そのものが消えるよりずっとまし。
+  var base = loadBase_() || {};
+  applyLoadedState(mergeStates_(base, state, s));
+  state.rev = s.rev || 0;
+  saveLocal();
+  saveBase_(s);
+  setKnownWriter_(s.lastWriter);
+  freshSynced = true;
+  setSync("他の端末の更新と合流しました", "conflict");
+  render(); renderBoardTable();
+  return "retry";
+}
+
+// 書き込む直前にサーバーの今の内容を取得し、他の端末が先に書いていないか確かめる。GAS側の
+// 保護(rev)が効いていない旧版のままでも、古い状態の端末が新しい内容を上書きしないための砦。
+function fetchServerForPush_(){
+  var ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+  var timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, 20000) : null;
+  return fetch(gasUrl() + (GAS_SECRET ? "&" : "?") + "t=" + Date.now(), ctrl ? { method:"GET", signal:ctrl.signal } : { method:"GET" })
+    .then(function(r){ return r.json(); })
+    .then(function(s){ if (timer) clearTimeout(timer); return s; },
+          function(e){ if (timer) clearTimeout(timer); throw e; });
+}
+
 function pushOnce_(){
+  setSync("保存前に確認中…", "busy");
+  return fetchServerForPush_().then(function(s){
+    if (!s || s.error) return { kind:"fail", msg:"未反映" };
+    var sw = s.lastWriter || "";
+    var empty = Object.keys(s).length === 0;
+    var known = getKnownWriter_();
+    var mineOnServer = (sw !== "" && (sw === state.lastWriter || myTokens.indexOf(sw) !== -1));
+    if (!empty && !mineOnServer && (known === null || sw !== known)){
+      return { kind:"conflict", s:s, pre:true };
+    }
+    return pushBody_(sw);
+  }, function(){
+    return { kind:"fail", msg:"オフライン（未送信あり）", offline:true };
+  }).then(handlePushResult_);
+}
+
+function pushBody_(knownWriterOnServer){
   var token = newWriteToken_();
   var sentRev = state.rev || 0;
   state.lastWriter = token;
@@ -884,47 +950,42 @@ function pushOnce_(){
   })
   .then(function(){
     setSync("確認中…", "busy");
-    return pollVerify_(token, sentRev, 0);
+    return pollVerify_(token, sentRev, 0, knownWriterOnServer);
   }, function(){
     return { kind:"fail", msg:"オフライン（未送信あり）", offline:true };
   })
-  .then(function(res){
-    if (res.kind === "ok"){
-      state.rev = res.s.rev || state.rev;
-      sentState.rev = state.rev;
-      saveBase_(sentState);
-      saveLocal();
-      if (!saveDirty){ setUnsynced_(false); setSync("同期済み", "ok"); }
-      return "ok";
+  .then(function(res){ res.token = token; res.sentRev = sentRev; res.sentState = sentState; return res; });
+}
+
+function handlePushResult_(res){
+  if (res.kind === "ok"){
+    var gasProtects = (res.s.rev || 0) > res.sentRev;
+    state.rev = res.s.rev || state.rev;
+    res.sentState.rev = state.rev;
+    saveBase_(res.sentState);
+    setKnownWriter_(res.token);
+    freshSynced = true;
+    saveLocal();
+    if (!saveDirty){
+      setUnsynced_(false);
+      if (gasProtects) setSync("同期済み", "ok");
+      else setSync("同期済み（GASが旧版：サーバー側の上書き防止が無効）", "warn");
     }
-    if (res.kind === "mine"){
-      // 以前送って結果が確認できなかった自分の書き込みが、後から届いていた。サーバーには
-      // 自分の内容が乗っているだけなので、revだけ合わせて今の内容を送り直す。
-      state.rev = res.s.rev || state.rev;
-      saveLocal();
-      return "retry";
-    }
-    if (res.kind === "conflict"){
-      var s = res.s;
-      backupBeforeConflict_(cloneDefault(state));
-      // 基準点（最後にサーバーと一致していた内容）がまだこの端末に無い場合でも、
-      // サーバー側を採用してこの端末の入力を捨てることはしない。基準点を空{}とみなして
-      // 合流する（＝この端末の値をそのまま増分として足す）。この端末の設定変更が
-      // 二重に加算される可能性はあるが、入力そのものが消えるよりずっとまし。
-      var base = loadBase_() || {};
-      // 他の端末の更新を捨てず、この端末の入力も捨てず、両方を合流させて送り直す
-      applyLoadedState(mergeStates_(base, state, s));
-      state.rev = s.rev || 0;
-      saveLocal();
-      saveBase_(s);
-      setSync("他の端末の更新と合流しました", "conflict");
-      render(); renderBoardTable();
-      return "retry";
-    }
-    setUnsynced_(true);
-    setSync(res.msg || "未反映", res.offline ? "warn" : "err");
-    return "fail";
-  });
+    return "ok";
+  }
+  if (res.kind === "mine"){
+    // 以前送って結果が確認できなかった自分の書き込みが、後から届いていた。サーバーには
+    // 自分の内容が乗っているだけなので、revだけ合わせて今の内容を送り直す。
+    state.rev = res.s.rev || state.rev;
+    saveLocal();
+    return "retry";
+  }
+  if (res.kind === "conflict"){
+    return resolveConflict_(res.s);
+  }
+  setUnsynced_(true);
+  setSync(res.msg || "未反映", res.offline ? "warn" : "err");
+  return "fail";
 }
 
 // 読み込み：まずこの端末の直前の状態を出す。まだサーバーへ届いていない変更が残っている
@@ -954,6 +1015,8 @@ function load(timeoutMs){
         applyLoadedState(s);
         saveLocal();
         saveBase_(s);
+        setKnownWriter_(s.lastWriter);
+        freshSynced = true;
         setUnsynced_(false);
         setSync("同期済み", "ok");
         flushPendingLogs();  // オンラインに戻れたので、溜まっていた日次ログも送る
@@ -970,9 +1033,10 @@ function load(timeoutMs){
 // 入力を始める前に最新を取り込む：取得が終わるまで入力を止める（他端末の更新を知らない
 // 古い状態から入力して、後で競合するのを防ぐ）。SYNC_GATE_TIMEOUT_MS内に取れなければ
 // ゲートを外してオフラインのまま使えるようにする（その場合の変更は後で送り直される）。
-var SYNC_GATE_TIMEOUT_MS = 6000;
+var SYNC_GATE_TIMEOUT_MS = 15000;
 function syncWithGate(){
   var gate = document.getElementById("syncGate");
+  freshSynced = false;
   gate.classList.add("show");
   return load(SYNC_GATE_TIMEOUT_MS).then(function(){
     gate.classList.remove("show");
@@ -987,7 +1051,10 @@ function settlePastDays(){
     save();
     return false;
   }
-  // 日をまたいでいたら、持ち越し不可の報酬を0に戻し、前日の記録をスプレッドシートへ送る
+  // 日をまたいでいたら、持ち越し不可の報酬を0に戻し、前日の記録をスプレッドシートへ送る。
+  // サーバーの最新を確認できていない（オフライン等）ときは、古い記録のまま前日の行を
+  // 上書きしないよう、確認できるまで見送る。
+  if (GAS_URL && !freshSynced) return false;
   if (state.lastSettled < today){
     var prevDate = state.lastSettled;
     state.rewards.forEach(function(r){
