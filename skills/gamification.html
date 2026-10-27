@@ -2536,9 +2536,14 @@ function startApp(){
     renderBoardTable();
   });
   // ネットが戻ったら、押した記録が確実にサーバーへ追いつくようにする
+  // 起動時に電波が弱くて最新を確認できなかった場合、日跨ぎ処理（当日限り報酬のリセット）は
+  // 見送られたままになるので、ネットが戻ったタイミングで再同期してからやり直す。
   window.addEventListener("online", function(){
-    if (hasUnsynced) save();
     flushPendingLogs();
+    if (reloading) return;
+    load().then(function(){
+      if (settlePastDays()){ render(); renderBoardTable(); }
+    });
   });
   // ホーム画面アプリを閉じずに日をまたいだ場合でも取りこぼさないよう、
   // フォアグラウンド復帰時に日跨ぎ処理を再チェックする
