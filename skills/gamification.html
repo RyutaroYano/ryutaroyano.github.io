@@ -833,7 +833,13 @@ function mergeStates_(base, local, server){
 // 送信中に新しい操作があったら、今の送信が終わってから、最新のrevで最新の内容を送り直す。
 var saveInFlight = null;
 var saveDirty = false;
+// 自分が送った書き込みの目印。ページを開き直すと忘れてしまうと、「サーバーに届いたが確認前に
+// アプリが閉じた自分の書き込み」を次回起動時に他の端末の書き込みと誤認し、合流処理で
+// 同じ増減を二重に足してしまう（サイコロ1回で点数が−3になる等）。そのため端末にも残す。
+var MYTOKENS_KEY = "gamification_mytokens_v1";
 var myTokens = [];
+try { myTokens = JSON.parse(localStorage.getItem(MYTOKENS_KEY) || "[]") || []; } catch(e){ myTokens = []; }
+function saveMyTokens_(){ try { localStorage.setItem(MYTOKENS_KEY, JSON.stringify(myTokens)); } catch(e){} }
 function save(){
   saveLocal();  // ここは必ず成功する（通信不要）ので、オフラインでも操作は消えない
   if (!GAS_URL){ setSync("未接続", "warn"); return Promise.resolve(); }
@@ -939,6 +945,7 @@ function pushBody_(knownWriterOnServer){
   var sentRev = state.rev || 0;
   state.lastWriter = token;
   myTokens.push(token); if (myTokens.length > 10) myTokens.shift();
+  saveMyTokens_();  // 送信する前に残す（送信後すぐ閉じられても分かるように）
   var payload = JSON.stringify(state);
   var sentState = JSON.parse(payload);
   setSync("保存中…", "busy");
